@@ -18,6 +18,14 @@ int main(int argc, const char *argv[])
 
 	/* [C1]
 	 * Explaint the following here.
+	 * This is opening up a TCP socket that will communicate using
+	 * IPV4 IP addresses (32 bit address). Then communication will be Internet Protocol, hence
+	 * the third argument of the creation of the socket is just 0.
+	 * The return value will be a file descriptor which is stored into variable sock.
+	 * Then sock is used to check whether or not the socket creation failed or not, it failed
+	 * if the return value of file descriptor is -1, otherwise it is a value greater than 0.
+	 * This just checks if the socket is created successfully with the specified protocol, if
+	 * it failed it will print the error and return -1 as the program exits.
 	 */
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("\n Socket creation error \n");
