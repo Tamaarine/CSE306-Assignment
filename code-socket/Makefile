@@ -22,7 +22,11 @@ SRC_FILES = $(wildcard *.c)
 
 ## [M6]
 #  Explaint the following here
-#  This is the built in function 
+#  This is doing substitution reference.
+#  it just takes in the white space separated .c source files
+#  then replace the .c with an empty space, which creates our executable
+#  file names that will be used for the prerequisites of the default goal.
+#  Ex: 'client.c server.c' -> 'client server'
 #  ...
 EXE_FILES = $(SRC_FILES:.c=)
 
@@ -55,6 +59,7 @@ all: $(EXE_FILES)
 #  in the current directory 
 #  which is namely just $(EXE_FILES) or client and server
 #  -f is used to don't complain even if the files don't exist
+#  and don't ask for permission, just delete it!
 #  ...
 clean:
 	rm -f $(EXE_FILES)
