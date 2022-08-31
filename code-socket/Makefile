@@ -16,7 +16,7 @@
 #  dirname takes in a file path, and remove the trailing forward slash.
 #  if the file is in current directory it just returns '.'.
 #
-#  So basically this line of code is using the current Makefile name "Makefile"
+#  So basically this line of code is using the current Makefile named "Makefile"
 #  finding the absolute path of it using realpath, then find out the current directory
 #  by doing dirname <my_cwd>/Makefile -> will return <my_cwd>.
 #  We can't just do `dirname Makefile` because it will return '.' not the path of CWD
