@@ -5,6 +5,16 @@ CUR_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 ## [M2]
 #  Explaint the following here
+#  This is setting up the compiler. Variable CC stores the
+#  compiler that we will be using to compile our c file, which will be gnu c compiler
+#  CFLAGS tells us the flags that are passed to the compiler, '-g -O2 -Werror -Wall'
+#  -g for compiling the file with debugging symbols. Will allow us to use gdb for debugging
+#  -O2 for level 2 of code optimization
+#  -Werror will make all warnings into errors. Unused variable warning? Error! Not compiled
+#  -Wall will warn you about lots of warnings, unused variable? Warning!
+#  -Werror and -Wall goes well with each other because one provides the warning
+#  the other will make the warning become error, make you a better programmer!
+#  Lastly LDFLAGS is suppose to be flags provided for linkers, but is empty for now
 #  ...
 CC = gcc
 CFLAGS += -g -O2 -Werror -Wall
@@ -17,16 +27,22 @@ LDFLAGS +=
 
 ## [M5]
 #  Explaint the following here
+#  The function wildcard is doing wildcard expansion, basically
+#  given the pattern which is *.c it will find all the files in the current
+#  directory (where Makefile is presented) that matches the pattern and then
+#  store it as a whitespace separated String into the variable SRC_FILES.
+#  In our case it will give us 'client.c server.c'
 #  ...
 SRC_FILES = $(wildcard *.c)
 
 ## [M6]
 #  Explaint the following here
 #  This is doing substitution reference.
-#  it just takes in the white space separated .c source files
+#  It just takes in the white space separated .c source files
 #  then replace the .c with an empty space, which creates our executable
 #  file names that will be used for the prerequisites of the default goal.
-#  Ex: 'client.c server.c' -> 'client server'
+#  Ex: 'client.c server.c' -> 'client server', then storing it into the variable
+#  EXE_FILES
 #  ...
 EXE_FILES = $(SRC_FILES:.c=)
 
