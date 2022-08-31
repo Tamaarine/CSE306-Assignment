@@ -1,5 +1,25 @@
 ## [M1]
 #  Explaint the following here
+#  MAKEFILE_LIST is a special variable that contain the name of each
+#  Makefile that is parsed by make, in the order it is parsed. If you read
+#  the last word of the MAKEFILE_LIST variable it will tell you the current
+#  Makefile that it is processing.
+#
+#  The function lastword is used return the last value in a series of names
+#  separated by white spaces. So $(lastword foo bar hello) -> will return hello
+#
+#  The function realpath just returns the absolute path of the given file.
+#  It will not contain any . or .. or //
+#
+#  Finally dirname is the command that's invoked with the shell function
+#  the shell function will evaluate the command and return you the output.
+#  dirname takes in a file path, and remove the trailing forward slash.
+#  if the file is in current directory it just returns '.'.
+#
+#  So basically this line of code is using the current Makefile name "Makefile"
+#  finding the absolute path of it using realpath, then find out the current directory
+#  by doing dirname <my_cwd>/Makefile -> will return <my_cwd>.
+#  We can't just do `dirname Makefile` because it will return '.' not the path of CWD
 #  ...
 CUR_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
@@ -83,6 +103,7 @@ clean:
 ## [M10]
 #  Explaint the following here
 #  It will make the target all and clean always out of date
-#  even if the file 'all' and 'clean' exists
+#  even if the file 'all' and 'clean' exists. So it will always
+#  execute the target.
 #  ...
 .PHONY: all clean
