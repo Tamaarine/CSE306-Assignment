@@ -96,6 +96,7 @@ all: $(EXE_FILES)
 #  which is namely just $(EXE_FILES) or client and server
 #  -f is used to don't complain even if the files don't exist
 #  and don't ask for permission, just delete it!
+#  This rule does not have any prerequisites.
 #  ...
 clean:
 	rm -f $(EXE_FILES)
