@@ -96,6 +96,7 @@ int main(int argc, const char *argv[])
 	 * printf just prints out a simple user prompt asking
 	 * the user to press any key to continue. The function getchar will
 	 * block until the user enter in a character, or multiple characters and hit enter.
+	 * Serve as a que to tell the user that the connection is established with the server
 	 */
 	printf("Press any key to continue...\n");
 	getchar();
