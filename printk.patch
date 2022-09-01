@@ -1,0 +1,22 @@
+diff --git a/net/socket.c b/net/socket.c
+index 7f64a6eccf63..42a2c2b0a85d 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1838,6 +1838,8 @@ int __sys_accept4_file(struct file *file, unsigned file_flags,
+ int __sys_accept4(int fd, struct sockaddr __user *upeer_sockaddr,
+ 		  int __user *upeer_addrlen, int flags)
+ {
++	printk(KERN_INFO "HELLO CSE-306!!! This is from __sys_accept\n");
++	
+ 	int ret = -EBADF;
+ 	struct fd f;
+ 
+@@ -1901,6 +1903,8 @@ int __sys_connect_file(struct file *file, struct sockaddr_storage *address,
+ 
+ int __sys_connect(int fd, struct sockaddr __user *uservaddr, int addrlen)
+ {
++	printk(KERN_INFO "HELLO CSE-306!!! This is from __sys_connect!\n");
++	
+ 	int ret = -EBADF;
+ 	struct fd f;
+ 
