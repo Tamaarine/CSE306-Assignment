@@ -40,8 +40,6 @@ CC = gcc
 CFLAGS += -g -O2 -Werror -Wall
 LDFLAGS +=
 
-
-
 ## [M3] -- REMOVED
 #  ...
 
