@@ -81,7 +81,7 @@ all: $(EXE_FILES)
 #  with the "-g -O2 -Werror -Wall" flags for the compiler. 
 #  No linker flags apparently. The executable name for each .c file will
 #  just be its name without the extension signify by the -o and $@ automatic variable.
-#  The input files for the compiler will just be the files with its .c extension
+#  The input files for the compiler will just be the file with its .c extension
 #  indicated by the $< automatic variable which is the first pre-requisites of the rule.
 #  ...
 %:%.c

@@ -36,7 +36,8 @@ int main(int argc, const char *argv[])
 	 * Explaint the following here.
 	 * memset will for each byte of the (size of the struct serv_addr) set the byte
 	 * to be the ASCII value '0', or integer value 48. So basically each byte
-	 * of the struct serv_addr will be 48.
+	 * of the struct serv_addr will be 48. (Not sure if it is suppose to be '0' or 0)
+	 * usually people set it to 0 to clear out the struct.
 	 * Then after doing the memory set, the next two line of code sets the
 	 * information on the sockaddr_in struct. The address family is set
 	 * to be AF_INET because we are using ipv4, and the port number that
