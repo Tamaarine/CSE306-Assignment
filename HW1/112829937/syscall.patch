@@ -1,0 +1,99 @@
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index 18b5500ea8bf..b159bfa2b655 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -370,6 +370,7 @@
+ 446	common	landlock_restrict_self	sys_landlock_restrict_self
+ 447	common	memfd_secret		sys_memfd_secret
+ 448	common	process_mrelease	sys_process_mrelease
++449 common  s2_encrypt          sys_s2_encrypt
+ 
+ #
+ # Due to a historical design error, certain syscalls are numbered differently
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 252243c7783d..9449b4e2eb0b 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -1265,6 +1265,8 @@ asmlinkage long sys_mmap_pgoff(unsigned long addr, unsigned long len,
+ 			unsigned long fd, unsigned long pgoff);
+ asmlinkage long sys_old_mmap(struct mmap_arg_struct __user *arg);
+ 
++asmlinkage long sys_s2_encrypt(char * plaintext, int encryption_key);
++
+ 
+ /*
+  * Not a real system call, but a placeholder for syscalls which are
+diff --git a/kernel/Makefile b/kernel/Makefile
+index 4df609be42d0..f36a9fde9cdd 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -12,6 +12,8 @@ obj-y     = fork.o exec_domain.o panic.o \
+ 	    notifier.o ksysfs.o cred.o reboot.o \
+ 	    async.o range.o smpboot.o ucount.o regset.o
+ 
++obj-y += encrypt.o
++
+ obj-$(CONFIG_USERMODE_DRIVER) += usermode_driver.o
+ obj-$(CONFIG_MODULES) += kmod.o
+ obj-$(CONFIG_MULTIUSER) += groups.o
+diff --git a/kernel/encrypt.c b/kernel/encrypt.c
+new file mode 100644
+index 000000000000..d3fdd342a724
+--- /dev/null
++++ b/kernel/encrypt.c
+@@ -0,0 +1,54 @@
++#include <linux/kernel.h>
++#include <linux/syscalls.h>
++#include <linux/string.h>
++#include <linux/slab.h>
++#include <linux/uaccess.h>
++
++SYSCALL_DEFINE2(s2_encrypt, char __user *, plaintext, int, encryption_key) {
++    char * buffer; /* Buffer for copied string from user */
++    char * ptr; /* Used to traverse through the string */
++    long ret; /* Return value from copy_from_user */
++    long string_size; /* Store the string length*/
++    
++    /* Encryption key out of bound */
++    if (encryption_key < 1 || encryption_key > 5) {
++        return EINVAL;
++    }
++    
++    /* Length of the string. The length account for null terminator */
++    string_size = strnlen_user(plaintext, 32 * PAGE_SIZE);
++    
++    /* strnlen_user failed or user entered in empty string */
++    if (string_size == 0) {
++        return EINVAL;
++    }
++    
++    /* Allocate length of string on the heap */
++    buffer = (char *)kmalloc(string_size, GFP_KERNEL);
++    
++    /* Memory allocation failed, return EINVAL */
++    if (!buffer) {
++        return EINVAL;
++    }
++    
++    /* copy string_size of character (w null terminator) into buffer */
++    ret = copy_from_user(buffer, plaintext, string_size);
++    
++    /* ret will be 0 if copied successfully, non-zero if it couldn't perform copy */
++    if (ret) {
++        return EINVAL;
++    }
++    
++    /* traversing the copied string, character by character */
++    ptr = buffer;
++    for (; *ptr; ptr++) {
++        *ptr = *ptr + encryption_key;
++    }
++    
++    printk(KERN_INFO "%s\n", buffer);
++    
++    /* Free up the memory */
++    kfree(buffer);
++    
++    return 0;
++}
+\ No newline at end of file
