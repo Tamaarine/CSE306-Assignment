@@ -111,6 +111,9 @@ int main(int argc, const char *argv[])
 	 * The third parameter is the length of the buffer.
 	 * The fourth parameter specifies some special flags, but in this case is 0, there are
 	 * no special flag being used.  
+	 * 
+	 * Then it prints out the message "Hello message sent" to notice user that the message
+	 * has been sent to the server.
 	 */
 	send(sock , hello , strlen(hello) , 0 );
 	printf("Hello message sent\n");

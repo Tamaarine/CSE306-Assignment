@@ -77,8 +77,8 @@ all: $(EXE_FILES)
 ## [M8] -- UPDATED
 #  Explaint the following here
 #  An implicit rule in make.
-#  It will convert all .c files into an executable with the gcc compiler,
-#  with the "-g -O2 -Werror -Wall" flags for the compiler. 
+#  For each of the .c files it will convert it into an executable with the
+#  gcc compiler with the "-g -O2 -Werror -Wall" flags for the compiler. 
 #  No linker flags apparently. The executable name for each .c file will
 #  just be its name without the extension signify by the -o and $@ automatic variable.
 #  The input files for the compiler will just be the file with its .c extension

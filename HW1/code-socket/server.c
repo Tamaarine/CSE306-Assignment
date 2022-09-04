@@ -167,7 +167,9 @@ int main(int argc, const char *argv[])
 	 * The fourth parameter is for special flag, but no flag is specified 
 	 * for this case.
 	 * 
-	 * After sending the message the program exits successfully.
+	 * After sending the message the program print the message
+	 * saying that the message has been sent, and exit the program
+	 * successfully.
 	 * 
 	 */
 	send(new_socket , hello , strlen(hello) , 0 );
