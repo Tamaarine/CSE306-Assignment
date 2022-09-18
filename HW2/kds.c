@@ -98,7 +98,7 @@ int play_linked_list(int * nums, int length) {
     int * ptr; /* Used for nums iteration */
     
     /* Pointer arthimetic for iteration */
-    for(ptr = nums; ptr < nums + length; ptr++) {
+    for (ptr = nums; ptr < nums + length; ptr++) {
         to_add = kmalloc(sizeof(struct my_link_list_struct), GFP_KERNEL);
         /* Memory allocation failed */
         if (!to_add) {
@@ -135,7 +135,7 @@ int play_rb_tree(int * nums, int length) {
     int * ptr; /* Used for nums iteration */
     
     /* Pointer arthimetic for iteration */
-    for(ptr = nums; ptr < nums + length; ptr++) {
+    for (ptr = nums; ptr < nums + length; ptr++) {
         to_add = kmalloc(sizeof(struct my_rb_tree_struct), GFP_KERNEL);
         /* Memory allocation failed */
         if (!to_add) {
@@ -149,10 +149,12 @@ int play_rb_tree(int * nums, int length) {
         my_rb_insert(&mytree, to_add); /* Insert it by calling mb_rb_insert */
     }
     
-    for(ptr = nums; ptr < nums + length; ptr++) {
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        /* Used search function */
         my_struct_entry = my_rb_search(&mytree, *ptr);
         if (my_struct_entry != NULL) {
             printk(KERN_INFO "Rb-tree data: %d\n", my_struct_entry->data);
+            /* Delete and free from rb_tree */
             rb_erase(&my_struct_entry->node, &mytree);
             kfree(my_struct_entry);
         }
@@ -171,7 +173,7 @@ int play_hash_table(int * nums, int length) {
     int * ptr; /* Used for nums iteration */
     
     /* Pointer arthimetic for iteration */
-    for(ptr = nums; ptr < nums + length; ptr++) {
+    for (ptr = nums; ptr < nums + length; ptr++) {
         to_add = kmalloc(sizeof(struct my_hash_table_struct), GFP_KERNEL);
         /* Memory allocation failed */
         if (!to_add) {
@@ -185,11 +187,25 @@ int play_hash_table(int * nums, int length) {
     
     /* Print out the integers inside hash table */
     hash_for_each(myhashtable, bkt, position, hash_list) {
-        printk(KERN_INFO "Hash table data: %d\n", position->data);
-
+        printk(KERN_INFO "Hash table data (for_each): %d\n", position->data);
+        // hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
+        // kfree(position); /* Then free the struct */
+    }
+    
+    /* Used this to iterate over each of the keys */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        /* Should only be few entry */
+        hash_for_each_possible(myhashtable, position, hash_list, *ptr) {
+            printk(KERN_INFO "Hash table data (for_each_possible): %d\n", position->data);
+        }
+    }
+    
+    /* Then we free and delete each entry */
+    hash_for_each(myhashtable, bkt, position, hash_list) {
         hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
         kfree(position); /* Then free the struct */
     }
+    
     return 0;
 }
 
