@@ -5,9 +5,11 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/rbtree.h>
+#include <linux/hashtable.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "CSE 306 Testing Module"
+#define MAX_SIZE (1UL << 16) 
 
 static char * int_str = "";
 
@@ -26,6 +28,13 @@ struct my_rb_tree_struct {
     struct rb_node node; /* Kernel's embedded rb_node struct */
 };
 
+/* mystruct for hash table */
+struct my_hash_table_struct {
+    int data; /* Stores integer */
+    struct hlist_node hash_list; /* Kernel's embedded linked list node for bucket */
+};
+
+/* Insert function for rb-tree */
 void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
     /* Pointer to a pointer of rb_node used to traverse the tree */
     struct rb_node ** link = &root->rb_node;
@@ -54,22 +63,137 @@ void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
     rb_insert_color(&new->node, root);
 }
 
+/* 
+ * Play with linked list, return -EINVAL if memory allocation failed
+ * return 0 if succesfully played with the data structure.
+ * 
+ * nums: The array of numbers
+ * length: The number of numbers from initializing module
+*/
+int play_linked_list(int * nums, int length) {
+    /* All the variables that are required */
+    LIST_HEAD(mylinkedlist); /* macro that defines the sentinel node (The head) */
+    struct my_link_list_struct * position, * next; /* Temp variable used in iteration */
+    struct my_link_list_struct * to_add; /* Variable used to add to list */
+    
+    int * ptr; /* Used for nums iteration */
+    
+    /* Pointer arthimetic for iteration */
+    for(ptr = nums; ptr < nums + length; ptr++) {
+        to_add = kmalloc(sizeof(struct my_link_list_struct), GFP_KERNEL);
+        /* Memory allocation failed */
+        if (!to_add) {
+            return -EINVAL;
+        }
+        
+        to_add->data = *ptr; /* Store integer into struct */
+        INIT_LIST_HEAD(&to_add->list); /* Set the node to point to itself first */
+        
+        list_add(&to_add->list, &mylinkedlist);
+    }
+    
+    /* Print out the integers inside linked list and then free */
+    list_for_each_entry_safe_reverse(position, next, &mylinkedlist, list) {
+        /* Position contain the struct data */
+        printk(KERN_INFO "Linked List data: %d\n", position->data);
+        
+        /* Delete the list_head node */
+        list_del(&position->list);
+        
+        /* Free it after printing out the data */
+        kfree(position);
+    }
+    
+    return 0;
+}
+
+int play_rb_tree(int * nums, int length) {
+    /* Variable required */
+    struct rb_root mytree = RB_ROOT; /* Root node of the rb-tree, contains the rb_node pointer */
+    struct my_rb_tree_struct * to_add; /* Variable used to add to rb-tree */
+    struct my_rb_tree_struct * rb_node_entry; /* Used for storing the entry in iteration */
+    struct rb_node * position, * temp; /* Used for iteration */
+    
+    int * ptr; /* Used for nums iteration */
+    
+    /* Pointer arthimetic for iteration */
+    for(ptr = nums; ptr < nums + length; ptr++) {
+        to_add = kmalloc(sizeof(struct my_rb_tree_struct), GFP_KERNEL);
+        /* Memory allocation failed */
+        if (!to_add) {
+            return -EINVAL;
+        }
+        
+        to_add->data = *ptr;
+        to_add->node.rb_left = NULL;
+        to_add->node.rb_right = NULL;
+        
+        my_rb_insert(&mytree, to_add); /* Insert it by calling mb_rb_insert */
+    }
+    
+    /* Print out the integers inside the rb_tree then free */
+    position = rb_first(&mytree);
+    /* While rb_first is not NULL, print then remove and free */
+    while (position) {
+        rb_node_entry = rb_entry(position, struct my_rb_tree_struct, node);
+        
+        printk(KERN_INFO "Rb-tree data: %d\n", rb_node_entry->data);
+        
+        temp = rb_next(position); /* Get next entry */
+        
+        rb_erase(position, &mytree); /* Delete the node that was printed */
+        kfree(position); /* Free the node that was deleted */
+        
+        position = temp; /* Point to the next node */
+    }
+    
+    return 0;
+}
+
+int play_hash_table(int * nums, int length) {
+    /* Declaration for hash table */
+    struct my_hash_table_struct * position; /* Used for iteration */
+    struct my_hash_table_struct * to_add; /* Variable used to add to hashtable */
+    int bkt; /* Used for iteration */
+    DEFINE_HASHTABLE(myhashtable, 10); /* Will have 2^10 buckets for hashtable */
+    
+    int * ptr; /* Used for nums iteration */
+    
+    /* Pointer arthimetic for iteration */
+    for(ptr = nums; ptr < nums + length; ptr++) {
+        to_add = kmalloc(sizeof(struct my_hash_table_struct), GFP_KERNEL);
+        /* Memory allocation failed */
+        if (!to_add) {
+            return -EINVAL;
+        }
+        
+        to_add->data = *ptr; /* Add the data */
+        /* Add current node to hash table, using the data as key */
+        hash_add(myhashtable, &to_add->hash_list, to_add->data);
+    }
+    
+    /* Print out the integers inside hash table */
+    hash_for_each(myhashtable, bkt, position, hash_list) {
+        printk(KERN_INFO "Hash table data: %d\n", position->data);
+    }
+    return 0;
+}
+
 static int __init mymodule_init(void) {
+    /* Used for parsing the argument */
     char * temp;
     char current_char;
     long parsed_res;
     long ret;
-
-    /* Declaration for link list */
-    LIST_HEAD(mylinkedlist); /* macro that defines the sentinel node (The head) */
-    struct my_link_list_struct * position, * next; /* Temp variable used in iteration */
-    struct my_link_list_struct * to_add_link_list; /* Variable used to add to list */
     
-    /* Declaration for red-black tree */
-    struct rb_root mytree = RB_ROOT; /* Root node of the rb-tree, contains the rb_node pointer */
-    struct my_rb_tree_struct * to_add_rb_node; /* Variable used to add to rb-tree */
-    struct rb_node * rb_node_position, * rb_node_temp; /* Used for iteration */
-
+    /* Used for storing the numbers parsed */
+    int * nums;
+    int size;
+    
+    /* Allocate MAX_SIZE of integers */
+    nums = kmalloc(MAX_SIZE * sizeof(int), GFP_KERNEL);
+    size = 0;
+    
     printk(KERN_INFO "My module entered!\n");
     
     /* Set temp to int_str initially */
@@ -95,37 +219,21 @@ static int __init mymodule_init(void) {
                     printk(KERN_INFO "Somehow parsing the integer failed error code: %ld\n", ret);
                     return ret;
                 }
+                
+                /* Insert into array check if it has space
+                 * If not then free the array and return -EINVAL
+                 */
+                if (size >= MAX_SIZE) {
+                    kfree(nums);
+                    printk(KERN_INFO "Too many integer entered\n");
+                    return -EINVAL;
+                }
+                /* Otherwise insert */
+                *(nums + size) = parsed_res;
+                size++;
+                
                 /* Parsed successfully */
                 printk(KERN_INFO "Number from insmod: %d\n", (int)parsed_res);
-                
-                /* Insert into the corresponding data structure here */
-                /* First, linked list */
-                to_add_link_list = kmalloc(sizeof(struct my_link_list_struct), GFP_KERNEL);
-                /* Memory allocation failed */
-                if (!to_add_link_list) {
-                    return -EINVAL;
-                }
-                
-                /* Add integer to the struct */
-                to_add_link_list->data = parsed_res;
-                INIT_LIST_HEAD(&to_add_link_list->list); /* set the node to point to itself first */
-                
-                /* Then we add it to the head */
-                list_add(&to_add_link_list->list, &mylinkedlist);
-                
-                
-                /* Second, red-black tree */
-                to_add_rb_node = kmalloc(sizeof(struct my_rb_tree_struct), GFP_KERNEL);
-                /* Memory allocation failed */
-                if (!to_add_rb_node) {
-                    return -EINVAL;
-                }
-                
-                /* Set the data of the inserted node */
-                to_add_rb_node->data = parsed_res;
-                to_add_rb_node->node.rb_left = NULL;
-                to_add_rb_node->node.rb_right = NULL;
-                my_rb_insert(&mytree, to_add_rb_node); /* Insert it by calling mb_rb_insert */
             }
         }
         
@@ -143,40 +251,8 @@ static int __init mymodule_init(void) {
         }
     }
     
-    /* Print out the integers inside linked list and then free */
-    list_for_each_entry_safe_reverse(position, next, &mylinkedlist, list) {
-        /*
-         * First parameter is the ptr used to iterate over the link list
-         * is just position.
-         * Second parameter is the struct that the linked list is embedded in
-         * Third parameter is the list_head name the embedded struct
-         */
-        printk(KERN_INFO "Linked List data: %d\n", position->data);
-        
-        /* Delete the list_head node */
-        list_del(&position->list);
-        
-        /* Free it after printing out the data */
-        kfree(position);
-    }
-    
-    /* Print out the integers inside the rb_tree then free */
-    rb_node_position = rb_first(&mytree);
-    /* While rb_first is not NULL, print then remove and free */
-    while (rb_node_position) {
-        /* Reuse to_add_rb_node for storing the struct pointer */
-        to_add_rb_node = rb_entry(rb_node_position, struct my_rb_tree_struct, node);
-        
-        printk(KERN_INFO "rb-tree data: %d\n", to_add_rb_node->data);
-        
-        rb_node_temp = rb_next(rb_node_position); /* Get next entry */
-        
-        rb_erase(rb_node_position, &mytree); /* Delete the node that was printed */
-        kfree(rb_node_position); /* Free the node that was deleted */
-        
-        rb_node_position = rb_node_temp; /* Point to the next node */
-    }
-    
+    play_linked_list(nums, size);
+    play_rb_tree(nums, size);
     
     return 0;
 }
