@@ -175,6 +175,9 @@ int play_hash_table(int * nums, int length) {
     /* Print out the integers inside hash table */
     hash_for_each(myhashtable, bkt, position, hash_list) {
         printk(KERN_INFO "Hash table data: %d\n", position->data);
+
+        hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
+        kfree(position); /* Then free the struct */
     }
     return 0;
 }
@@ -253,6 +256,7 @@ static int __init mymodule_init(void) {
     
     play_linked_list(nums, size);
     play_rb_tree(nums, size);
+    play_hash_table(nums, size);
     
     return 0;
 }
