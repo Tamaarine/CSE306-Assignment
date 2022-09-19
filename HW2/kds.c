@@ -35,6 +35,12 @@ struct my_hash_table_struct {
     struct hlist_node hash_list; /* Kernel's embedded linked list node for bucket */
 };
 
+/* Put a hash table into a struct, so I can dynamically allocate it on heap */
+struct hash_table_wrapper {
+    /* Declare a hashtable here with size 2^10 */
+    DECLARE_HASHTABLE(myhashtable, 10);
+};
+
 /* Insert function for rb-tree */
 void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
     /* Pointer to a pointer of rb_node used to traverse the tree */
@@ -169,11 +175,11 @@ int play_hash_table(int * nums, int length) {
     struct my_hash_table_struct * position; /* Used for iteration */
     struct my_hash_table_struct * to_add; /* Variable used to add to hashtable */
     int bkt; /* Used for iteration */
-    DEFINE_HASHTABLE(myhashtable, 10); /* Will have 2^10 buckets for hashtable */
     
+    /* Allocate the hashtable on the stack */
+    struct hash_table_wrapper * ht_wrapper = kmalloc(sizeof(struct hash_table_wrapper), GFP_KERNEL);
+        
     int * ptr; /* Used for nums iteration */
-    
-    hash_init(myhashtable); /* Initialize the hash table */
     
     /* Pointer arthimetic for iteration */
     for (ptr = nums; ptr < nums + length; ptr++) {
@@ -185,11 +191,11 @@ int play_hash_table(int * nums, int length) {
         
         to_add->data = *ptr; /* Add the data */
         /* Add current node to hash table, using the data as key */
-        hash_add(myhashtable, &to_add->hash_list, to_add->data);
+        hash_add(ht_wrapper->myhashtable, &to_add->hash_list, to_add->data);
     }
     
     /* Print out the integers inside hash table */
-    hash_for_each(myhashtable, bkt, position, hash_list) {
+    hash_for_each(ht_wrapper->myhashtable, bkt, position, hash_list) {
         printk(KERN_INFO "Hash table data (for_each): %d\n", position->data);
         // hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
         // kfree(position); /* Then free the struct */
@@ -198,13 +204,13 @@ int play_hash_table(int * nums, int length) {
     /* Used this to iterate over each of the keys */
     for (ptr = nums; ptr < nums + length; ptr++) {
         /* Should only be few entry */
-        hash_for_each_possible(myhashtable, position, hash_list, *ptr) {
+        hash_for_each_possible(ht_wrapper->myhashtable, position, hash_list, *ptr) {
             printk(KERN_INFO "Hash table data (for_each_possible): %d\n", position->data);
         }
     }
     
     /* Then we free and delete each entry */
-    hash_for_each(myhashtable, bkt, position, hash_list) {
+    hash_for_each(ht_wrapper->myhashtable, bkt, position, hash_list) {
         hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
         kfree(position); /* Then free the struct */
     }
