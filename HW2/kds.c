@@ -172,6 +172,8 @@ int play_hash_table(int * nums, int length) {
     
     int * ptr; /* Used for nums iteration */
     
+    hash_init(myhashtable); /* Initialize the hash table */
+    
     /* Pointer arthimetic for iteration */
     for (ptr = nums; ptr < nums + length; ptr++) {
         to_add = kmalloc(sizeof(struct my_hash_table_struct), GFP_KERNEL);
