@@ -6,6 +6,7 @@
 #include <linux/list.h>
 #include <linux/rbtree.h>
 #include <linux/hashtable.h>
+#include <linux/radix-tree.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "CSE 306 Testing Module"
@@ -211,6 +212,72 @@ int play_hash_table(int * nums, int length) {
     return 0;
 }
 
+int play_radix_tree(int * nums, int length) {
+    RADIX_TREE(myradixtree, GFP_KERNEL); /* Declare the radix tree and initialize */
+    int * ret; /* Used to store the radix_tree_lookup return pointer */
+    int * allocated_num; /* Used to store the allocated number on the heap */
+    
+    int ** results; /* Use to store the first elements of the array of returned gang lookup */
+    int results_length; /* Used track how many results are stored */
+    int ** results_ptr; /* Used to iterate over the array of pointers */
+    
+    int * ptr; /* Used for iterating over the nums array */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        /* Indexed by the key, and the number as the data as well */
+        radix_tree_preload(GFP_KERNEL);
+        allocated_num = kmalloc(sizeof(int), GFP_KERNEL);
+        if (!allocated_num) {
+            return -EINVAL;
+        }
+        *allocated_num = *ptr;
+        
+        /* The key is just the number. The data we storing is a pointer to the number we allocated */
+        radix_tree_insert(&myradixtree, *ptr, (void *)allocated_num);
+        radix_tree_preload_end();        
+    }
+    
+    /* Look up all of the numbers by radix_tree_lookup */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        ret = radix_tree_lookup(&myradixtree, *ptr);
+        
+        /* If the number is odd tag it */
+        if (*ptr % 2 == 1)
+            radix_tree_tag_set(&myradixtree, *ptr, 1);
+        printk(KERN_INFO "Radix tree data: %d\n", *ret);
+    }
+    
+    /* results need to be an array of pointers, because internally
+     * radix_tree_gang_lookup_tag stores the tagged results into the pointers
+     */
+    results = kmalloc(sizeof(int *) * length, GFP_KERNEL);
+    
+    if (!results) {
+        return -EINVAL;
+    }
+    
+    /* Find all odd number tags */
+    results_length = radix_tree_gang_lookup_tag(&myradixtree, (void **)results, 0, length, 1);
+    
+    /* Display them */
+    for (results_ptr = results; results_ptr < results + results_length; results_ptr++) {
+        printk(KERN_INFO "Radix tree data (from gang_lookup_tag on odd number) %d\n", **results_ptr);
+    }
+    
+    /* Time for freeing */
+    kfree(results); /* First the array of pointers needs to be freed */
+    
+    /* Then each of the allocated data */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        ret = radix_tree_lookup(&myradixtree, *ptr);
+        radix_tree_delete(&myradixtree, *ptr); /* Delete the entry from the radix tree */
+        
+        /* Then free the integer that was allocated on the heap */
+        kfree(ret);
+    }
+    
+    return 0;
+}
+
 static int __init mymodule_init(void) {
     /* Used for parsing the argument */
     char * temp;
@@ -286,6 +353,7 @@ static int __init mymodule_init(void) {
     play_linked_list(nums, size);
     play_rb_tree(nums, size);
     play_hash_table(nums, size);
+    play_radix_tree(nums, size);
     
     return 0;
 }
