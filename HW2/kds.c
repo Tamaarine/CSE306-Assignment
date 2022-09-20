@@ -7,6 +7,7 @@
 #include <linux/rbtree.h>
 #include <linux/hashtable.h>
 #include <linux/radix-tree.h>
+#include <linux/xarray.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "CSE 306 Testing Module"
@@ -266,7 +267,7 @@ int play_radix_tree(int * nums, int length) {
     
     /* Display them */
     for (results_ptr = results; results_ptr < results + results_length; results_ptr++) {
-        printk(KERN_INFO "Radix tree data (from gang_lookup_tag on odd number) %d\n", **results_ptr);
+        printk(KERN_INFO "Radix tree data (from gang_lookup_tag on odd number): %d\n", **results_ptr);
     }
     
     /* Time for freeing */
@@ -282,6 +283,57 @@ int play_radix_tree(int * nums, int length) {
     }
     
     return 0;
+}
+
+int play_xarray(int * nums, int length) {
+    DEFINE_XARRAY(myxarray); /* Declare the xarray and initialize it */
+    
+    int * allocated_num; /* Used for storing the pointer to the number on heap */
+    int * ret; /* Used for storing the result from xa_load() */
+    unsigned long temp;
+    
+    int * ptr; /* Used for iteration over nums */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        allocated_num = kmalloc(sizeof(int), GFP_KERNEL);
+        if (!allocated_num) {
+            return -EINVAL;
+        }
+        
+        /* Store the number into the memory we allocated just like in radix tree */
+        *allocated_num = *ptr;
+        
+        /* Store into the xarray data structure */
+        xa_store(&myxarray, *ptr, allocated_num, GFP_KERNEL);
+    }
+    
+    /* Then iterate over the numbers and look up in xarray using xa_load */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        ret = xa_load(&myxarray, *ptr);
+        
+        /* If the number is odd tag it */
+        if (*ptr % 2 == 1)
+            xa_set_mark(&myxarray, *ptr, 1);
+        
+        printk(KERN_INFO "Xarray data: %d\n", *ret);
+    }
+    
+    temp = 0;
+    
+    /* Use xa_for_each_marked to print out all odd numbers */
+    xa_for_each_marked(&myxarray, temp, ret, 1) {
+        printk(KERN_INFO "Xarray data from xa_for_each_marked: %d\n",*ret);
+    }
+    
+    /* Then delete each entry from xarray */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        ret = xa_load(&myxarray, *ptr);
+        xa_erase(&myxarray, *ptr); /* Delete entry from the xarray */
+        
+        /* Then free the integer */
+        kfree(ret);
+    }
+    
+    return 0;    
 }
 
 static int __init mymodule_init(void) {
@@ -360,6 +412,7 @@ static int __init mymodule_init(void) {
     play_rb_tree(nums, size);
     play_hash_table(nums, size);
     play_radix_tree(nums, size);
+    play_xarray(nums, size);
     
     return 0;
 }
