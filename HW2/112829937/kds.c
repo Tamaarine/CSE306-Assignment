@@ -202,8 +202,6 @@ int play_hash_table(int * nums, int length) {
     /* Print out the integers inside hash table */
     hash_for_each(ht_wrapper->myhashtable, bkt, position, hash_list) {
         printk(KERN_INFO "Hash table data (for_each): %d\n", position->data);
-        // hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
-        // kfree(position); /* Then free the struct */
     }
     
     /* Used this to iterate over each of the keys */
@@ -219,6 +217,9 @@ int play_hash_table(int * nums, int length) {
         hash_del(&position->hash_list); /* Delete the hash_list object in the struct */
         kfree(position); /* Then free the struct */
     }
+    
+    /* Finally free the hash table itself */
+    kfree(ht_wrapper);
     
     return 0;
 }
@@ -441,6 +442,9 @@ static int __init mymodule_init(void) {
     play_radix_tree(nums, size);
     play_xarray(nums, size);
     play_bitmap(nums, size);
+    
+    /* Free the number we allocated in the beginning */
+    kfree(nums);
     
     return 0;
 }
