@@ -351,7 +351,6 @@ int play_bitmap(int * nums, int length) {
     /* Set each number's bit */
     for (ptr = nums; ptr < nums + length; ptr++) {
         set_bit(*ptr, mybitmap);
-        printk(KERN_INFO "Bit set for %d\n", *ptr);
     }
     
     /* Go through each set bit and print out the number */
