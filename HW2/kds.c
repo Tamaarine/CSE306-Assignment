@@ -8,10 +8,14 @@
 #include <linux/hashtable.h>
 #include <linux/radix-tree.h>
 #include <linux/xarray.h>
+#include <linux/bitmap.h>
+#include <linux/bitmap.h>
+#include <asm/bitops.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "CSE 306 Testing Module"
 #define MAX_SIZE (1UL << 16) 
+#define MAX_BITS 1001 /* 0 to 1000 inclusive */
 
 static char * int_str = "";
 
@@ -336,6 +340,30 @@ int play_xarray(int * nums, int length) {
     return 0;    
 }
 
+int play_bitmap(int * nums, int length) {
+    DECLARE_BITMAP(mybitmap, MAX_BITS); /* Declare an array of long that's long enough to store [0, 1000] */
+    int bit_num; /* Used to store which number the bit was set */
+    
+    int * ptr; /* Used for iteration over nums */
+    
+    bitmap_zero(mybitmap, MAX_BITS); /* Clear the bitmap to initialize */
+    
+    /* Set each number's bit */
+    for (ptr = nums; ptr < nums + length; ptr++) {
+        set_bit(*ptr, mybitmap);
+        printk(KERN_INFO "Bit set for %d\n", *ptr);
+    }
+    
+    /* Go through each set bit and print out the number */
+    for_each_set_bit(bit_num, mybitmap, MAX_BITS) {
+        printk(KERN_INFO "Bitmap data: %d\n", bit_num);
+    }
+    
+    bitmap_zero(mybitmap, MAX_BITS); /* Finally clear out the bitmap last time before exiting */
+    
+    return 0;
+}
+
 static int __init mymodule_init(void) {
     /* Used for parsing the argument */
     char * temp;
@@ -413,6 +441,7 @@ static int __init mymodule_init(void) {
     play_hash_table(nums, size);
     play_radix_tree(nums, size);
     play_xarray(nums, size);
+    play_bitmap(nums, size);
     
     return 0;
 }
