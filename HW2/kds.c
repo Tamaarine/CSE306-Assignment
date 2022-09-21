@@ -9,7 +9,6 @@
 #include <linux/radix-tree.h>
 #include <linux/xarray.h>
 #include <linux/bitmap.h>
-#include <linux/bitmap.h>
 #include <asm/bitops.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
