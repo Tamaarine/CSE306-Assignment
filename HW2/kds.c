@@ -47,7 +47,7 @@ struct hash_table_wrapper {
 };
 
 /* Insert function for rb-tree */
-void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
+static void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
     /* Pointer to a pointer of rb_node used to traverse the tree */
     struct rb_node ** link = &root->rb_node;
     struct rb_node * parent = NULL; /* Used to store the last node visited */
@@ -76,7 +76,7 @@ void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
 }
 
 /* Search function */
-struct my_rb_tree_struct * my_rb_search(struct rb_root * root, int value) {
+static struct my_rb_tree_struct * my_rb_search(struct rb_root * root, int value) {
     struct rb_node * node = root->rb_node;
     
     while (node) {
@@ -101,7 +101,7 @@ struct my_rb_tree_struct * my_rb_search(struct rb_root * root, int value) {
  * nums: The array of numbers
  * length: The number of numbers from initializing module
 */
-int play_linked_list(int * nums, int length) {
+static int play_linked_list(int * nums, int length) {
     /* All the variables that are required */
     LIST_HEAD(mylinkedlist); /* macro that defines the sentinel node (The head) */
     struct my_link_list_struct * position, * next; /* Temp variable used in iteration */
@@ -138,7 +138,7 @@ int play_linked_list(int * nums, int length) {
     return 0;
 }
 
-int play_rb_tree(int * nums, int length) {
+static int play_rb_tree(int * nums, int length) {
     /* Variable required */
     struct rb_root mytree = RB_ROOT; /* Root node of the rb-tree, contains the rb_node pointer */
     struct my_rb_tree_struct * to_add; /* Variable used to add to rb-tree */
@@ -175,7 +175,7 @@ int play_rb_tree(int * nums, int length) {
     return 0;
 }
 
-int play_hash_table(int * nums, int length) {
+static int play_hash_table(int * nums, int length) {
     /* Declaration for hash table */
     struct my_hash_table_struct * position; /* Used for iteration */
     struct my_hash_table_struct * to_add; /* Variable used to add to hashtable */
@@ -224,7 +224,7 @@ int play_hash_table(int * nums, int length) {
     return 0;
 }
 
-int play_radix_tree(int * nums, int length) {
+static int play_radix_tree(int * nums, int length) {
     RADIX_TREE(myradixtree, GFP_KERNEL); /* Declare the radix tree and initialize */
     int * ret; /* Used to store the radix_tree_lookup return pointer */
     int * allocated_num; /* Used to store the allocated number on the heap */
@@ -290,7 +290,7 @@ int play_radix_tree(int * nums, int length) {
     return 0;
 }
 
-int play_xarray(int * nums, int length) {
+static int play_xarray(int * nums, int length) {
     DEFINE_XARRAY(myxarray); /* Declare the xarray and initialize it */
     
     int * allocated_num; /* Used for storing the pointer to the number on heap */
@@ -341,7 +341,7 @@ int play_xarray(int * nums, int length) {
     return 0;    
 }
 
-int play_bitmap(int * nums, int length) {
+static int play_bitmap(int * nums, int length) {
     DECLARE_BITMAP(mybitmap, MAX_BITS); /* Declare an array of long that's long enough to store [0, 1000] */
     int bit_num; /* Used to store which number the bit was set */
     
