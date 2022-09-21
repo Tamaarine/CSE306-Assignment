@@ -75,25 +75,6 @@ static void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) 
     rb_insert_color(&new->node, root);
 }
 
-/* Search function */
-static struct my_rb_tree_struct * my_rb_search(struct rb_root * root, int value) {
-    struct rb_node * node = root->rb_node;
-    
-    while (node) {
-        struct my_rb_tree_struct * data = container_of(node, struct my_rb_tree_struct, node);
-        
-        /* The value we are looking for is smaller than current node */
-        if (data->data > value) 
-            node = node->rb_left;
-        else if (data->data < value)
-            node = node->rb_right;
-        else
-            return data;
-    }
-    /* Unable to find the node we are looking for */
-    return NULL;
-}
-
 /* 
  * Play with linked list, return -EINVAL if memory allocation failed
  * return 0 if succesfully played with the data structure.
@@ -143,6 +124,7 @@ static int play_rb_tree(int * nums, int length) {
     struct rb_root mytree = RB_ROOT; /* Root node of the rb-tree, contains the rb_node pointer */
     struct my_rb_tree_struct * to_add; /* Variable used to add to rb-tree */
     struct my_rb_tree_struct * my_struct_entry; /* Used for storing the entry in iteration */
+    struct rb_node * position, * temp; /* Used for iteration */
     
     int * ptr; /* Used for nums iteration */
     
@@ -161,15 +143,20 @@ static int play_rb_tree(int * nums, int length) {
         my_rb_insert(&mytree, to_add); /* Insert it by calling mb_rb_insert */
     }
     
-    for (ptr = nums; ptr < nums + length; ptr++) {
-        /* Used search function */
-        my_struct_entry = my_rb_search(&mytree, *ptr);
-        if (my_struct_entry != NULL) {
-            printk(KERN_INFO "Rb-tree data: %d\n", my_struct_entry->data);
-            /* Delete and free from rb_tree */
-            rb_erase(&my_struct_entry->node, &mytree);
-            kfree(my_struct_entry);
-        }
+    /* Print out the integers inside the rb_tree then free */
+    position = rb_first(&mytree);
+    /* While rb_first is not NULL, print then remove and free */
+    while (position) {
+        my_struct_entry = rb_entry(position, struct my_rb_tree_struct, node);
+        
+        printk(KERN_INFO "Rb-tree data: %d\n", my_struct_entry->data);
+        
+        temp = rb_next(position); /* Get next entry */
+        
+        rb_erase(position, &mytree); /* Delete the node that was printed */
+        kfree(my_struct_entry); /* Free the struct that was deleted */
+        
+        position = temp; /* Point to the next node */
     }
     
     return 0;
