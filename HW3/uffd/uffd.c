@@ -142,6 +142,9 @@ main(int argc, char *argv[])
 
 	/* [M1]
 	 * Explain following in here.
+	 * It checks if there is only one argument passed to the commandline
+	 * If there is none, or more than one argument passed, print out the message
+	 * "Usage: ./uffd num-pages" to explain that this program only take one argument
 	 */
 	if (argc != 2) {
 		fprintf(stderr, "Usage: %s num-pages\n", argv[0]);
@@ -150,12 +153,34 @@ main(int argc, char *argv[])
 
 	/* [M2]
 	 * Explain following in here.
+	 * sysconf allows you to get the certain value of a configuration constants
+	 * during run time. So _SC_PAGE_SIZE constant is basically asking how many
+	 * bytes are in a memory page in current architecture. 
+	 * 
+	 * len is computed by converting the user input from either base 16, base 8, or base 10
+	 * to a unsigned long and multiplied with the page_size. Len represent the total
+	 * number of bytes we are mapping later. 
 	 */
 	page_size = sysconf(_SC_PAGE_SIZE);
 	len = strtoul(argv[1], NULL, 0) * page_size;
 
 	/* [M3]
 	 * Explain following in here.
+	 * Doing the syscall for userfaultfd which creates a
+	 * userfaultfd object that can be used by the user program to handle
+	 * page-fault rather than letting the kernel handling it by default.
+	 * 
+	 * The return value of the syscall is a file descriptor that refers
+	 * to the userdefaultfd object. Then you can read from the userfaultfd
+	 * to receive any page-fault notifications. The reading may or may not be
+	 * blocking but since we specified O_NONBLOCK it will never block.
+	 * 
+	 * O_CLOCEXEC flag tells the file descriptor to close itself when a child
+	 * is forked, because by default a forked child will inherit the parent's
+	 * opened file descriptor. This flag basically says when child process does
+	 * execve close the file descriptor that has O_CLOCEXEC set.
+	 * 
+	 * The syscall return -1 if error, otherwise is good.
 	 */
 	uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
 	if (uffd == -1)
@@ -163,6 +188,20 @@ main(int argc, char *argv[])
 
 	/* [M4]
 	 * Explain following in here.
+	 * After the userfaultfd is opened it must be enabled by calling
+	 * ioctl (I/O control) to configure the file descriptor.
+	 * 
+	 * The first call to ioctl should take in the file descriptor as
+	 * first parameter. The action code to do which is UFFDIO_API in this case,
+	 * this operation just establish a handshake between kernel and the user program
+	 * to determine the API version and the features supported.
+	 * 
+	 * The third parameter is the address of the uffdio_api struct that you have to pass into ioctl.
+	 * the struct configures the api field to be UFFD_API. The feature field is set to 0
+	 * and when ioctl is successful it will set this field to be a bitmask, defining
+	 * what memory types are supported by the userfaultfd and what event will be generated.
+	 * 
+	 * Will return -1 if error basically.
 	 */
 	uffdio_api.api = UFFD_API;
 	uffdio_api.features = 0;
@@ -171,6 +210,7 @@ main(int argc, char *argv[])
 
 	/* [M5]
 	 * Explain following in here.
+	 * 
 	 */
 	addr = mmap(NULL, len, PROT_READ | PROT_WRITE,
 		    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
