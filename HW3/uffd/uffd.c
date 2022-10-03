@@ -211,6 +211,23 @@ main(int argc, char *argv[])
 	/* [M5]
 	 * Explain following in here.
 	 * 
+	 * Calls the mmap syscall to map anonymous memory into virtual machine.
+	 * First parameter tells kernel where to start looking for free memory.
+	 * null means let the kernel pick the address.
+	 * 
+	 * Since we are doing anoymous mapping we do not need to provide in
+	 * the file descriptor nor the offset hence they are -1 and 0 respectively.
+	 * 
+	 * It is in addition private mapping therefore, each of the child processes
+	 * will be inheriting the mapping through copy-on-write manner.
+	 * 
+	 * The protection flags specifies that the memory region can be read, and write to
+	 * 
+	 * And finally because this is anoymous mapping we need to provide in the
+	 * number bytes which is len.
+	 * 
+	 * mmap will return MAP_FAILED if mapping failed and the code exits. Otherwise a pointer to the mapped
+	 * area is returned and finally print the address returned by mmap
 	 */
 	addr = mmap(NULL, len, PROT_READ | PROT_WRITE,
 		    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -221,6 +238,21 @@ main(int argc, char *argv[])
 
 	/* [M6]
 	 * Explain following in here.
+	 * ioctl with UFFDIO_REIGSTER register the anonymous page we just allocated with mmap
+	 * with the userfaultfd to do our custom page-fault handling logic. 
+	 * 
+	 * We have to provide in uffdio_register as the struct for argp.
+	 * The uffdio_register struct contain the start of the range we are monitoring
+	 * the length of the range.
+	 * 
+	 * And the struct also specify a mode of operation, UFFDIO_REGISTER_MODE_MISSING  
+	 * in this case tells userfaultfd to track page fault on missing pages for this particular
+	 * memory range we have assigned.
+	 * 
+	 * Finally, the struct and action code UFFDIO_REIGSTER is passed into ioctl
+	 * to set the fields for file descriptor uffd.
+	 * 
+	 * Then we just check if ioctl call return -1 for error, otherwise is successful
 	 */
 	uffdio_register.range.start = (unsigned long) addr;
 	uffdio_register.range.len = len;
@@ -230,6 +262,17 @@ main(int argc, char *argv[])
 
 	/* [M7]
 	 * Explain following in here.
+	 * pthread_create create a new thread. It stores the ID of the new thread into
+	 * buffer thr.
+	 * 
+	 * The second parameter attr is null meaning the thread is created with default attribute
+	 * 
+	 * The third parameter specifies the function to run when this new thread is created which is
+	 * fault_handler_thread in this case 
+	 * 
+	 * The last parameter provide the parameter for fault_handler_thread, which is the uffd file descriptor
+	 * in this case. We are basically handing off the userfaultfd to the new thread we created to handle
+	 * rather than the master thread.
 	 */
 	s = pthread_create(&thr, NULL, fault_handler_thread, (void *) uffd);
 	if (s != 0) {
