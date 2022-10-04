@@ -38,6 +38,12 @@ fault_handler_thread(void *arg)
 
 	/* [H1]
 	 * Explain following in here.
+	 * The line of code here is allocating another 1 page for the thread
+	 * using mmap. It uses the same configuration from main as described
+	 * anonymous mapping, is private, and is allowed to read and write to the
+	 * memory mapped.
+	 * 
+	 * If it failed then exit the thread.
 	 */
 	if (page == NULL) {
 		page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
@@ -48,6 +54,7 @@ fault_handler_thread(void *arg)
 
 	/* [H2]
 	 * Explain following in here.
+	 * This is an infinite for loop
 	 */
 	for (;;) {
 
@@ -58,6 +65,26 @@ fault_handler_thread(void *arg)
 
 		/* [H3]
 		 * Explain following in here.
+		 * The function poll will wait until one of the file descriptors passed into
+		 * the function become ready to perform I/O operation. 
+		 * 
+		 * And in this case we are only have one file descriptor passed into poll
+		 * to wait for I/O operation which is the userfaultfd passed into the thread.
+		 * 
+		 * We set the pollfd struct's fd field to be uffd, events to be POLLIN
+		 * indicating to notify poll when there is data to read from the file descriptor
+		 * 
+		 * The second parameter into poll tells how many file descriptor to watch for
+		 * and we only have one in this case
+		 * 
+		 * The last parameter tells how long to wait, -1 waits infinitely.
+		 * 
+		 * Poll when success return the number of file descriptor have event ready.
+		 * -1 when error.
+		 * 
+		 * The printf statement below will print when an event occurs for the file descriptor.
+		 * It & revents with the POLLIN mask and POLLERR mask to print whether it is an
+		 * POLLIN event or POLLERR event occured.
 		 */
 		pollfd.fd = uffd;
 		pollfd.events = POLLIN;
@@ -73,6 +100,18 @@ fault_handler_thread(void *arg)
 
 		/* [H4]
 		 * Explain following in here.
+		 * If poll returns then that means it has some message either be I/O error
+		 * due to POLLERR, or some message from faulting from POLLIN.
+		 * 
+		 * Anyway, read function read the uffd file descriptor and store the
+		 * bytes read into the msg struct, this indicate a page-fault event occured and
+		 * details are stored into the struct
+		 * 
+		 * If 0 is returned then it is EOF on the file descriptor, which I suppose cannot occur
+		 * on a userdefaultfd hence it is exiting with failure.
+		 * 
+		 * If -1 is returned from read then it is an error on reading the file descriptor, and
+		 * is exited appropriately.
 		 */
 		nread = read(uffd, &msg, sizeof(msg));
 		if (nread == 0) {
@@ -85,6 +124,11 @@ fault_handler_thread(void *arg)
 
 		/* [H5]
 		 * Explain following in here.
+		 * If it is not an page fault event that we are expecting
+		 * then we print the error message and exit with failure.
+		 * This is because we are only looking for PAGEFAULT event
+		 * with userfaultfd, if it generate some other event that we didn't
+		 * tell it to look for, then something is wrong.
 		 */
 		if (msg.event != UFFD_EVENT_PAGEFAULT) {
 			fprintf(stderr, "Unexpected event on userfaultfd\n");
@@ -93,6 +137,16 @@ fault_handler_thread(void *arg)
 
 		/* [H6]
 		 * Explain following in here.
+		 * If we reached here, then we indeed have a page fault event happeing
+		 * the next three line print out indicating that page fault is happening.
+		 * 
+		 * The flag describes the event on the page fault.
+		 * Because we set the mode to be UFFDIO_REGISTER_MODE_MISSING, the flag
+		 * set in this field is UFFD_PAGEFAULT_FLAG_WRITE, it is indicating
+		 * a write fault if UFFD_PAGEFAULT_FLAG_WRITE is set, otherwise it is
+		 * a read fault.
+		 * 
+		 * The address is the address the page fault triggered on.
 		 */
 		printf("    UFFD_EVENT_PAGEFAULT event: ");
 		printf("flags = %llx; ", msg.arg.pagefault.flags);
