@@ -54,7 +54,17 @@ fault_handler_thread(void *arg)
 
 	/* [H2]
 	 * Explain following in here.
-	 * This is an infinite for loop
+	 * This is an infinite for loop.
+	 * Basically this for loop will be waiting until a page-fault occurs
+	 * when it occurs, it will memset the page that's allocated on this thread
+	 * to be values of either all 'A' or all 'B',... all the way to 'T' depending
+	 * on the number of faults occured.
+	 * 
+	 * Then it resolves the page-fault by copying the page filled with the bytes
+	 * to the faulted address and finally printed out the number of bytes that's
+	 * copied from src to destination.
+	 * 
+	 * It will continue this process infinitely.
 	 */
 	for (;;) {
 
@@ -154,12 +164,32 @@ fault_handler_thread(void *arg)
 
 		/* [H7]
 		 * Explain following in here.
+		 * The memset below fills up the entire page allocated on the thread
+		 * with characters ranging from 'A' to 'T' depending on the number of
+		 * page-fault have occured. First fault it will fill it with all 'A'
+		 * second fault fill with all 'B', so on and when it reach every 20th fault
+		 * the byte that the buffer is filled wraps back to 'A' again.
 		 */
 		memset(page, 'A' + fault_cnt % 20, page_size);
 		fault_cnt++;
 
 		/* [H8]
 		 * Explain following in here.
+		 * uffdio_copy is the struct used to specify the memory chunk
+		 * to copy into the page-faulted memory in order to resolve the page-fault
+		 * 
+		 * In this case, we are copying the page we have allocated on the thread
+		 * that's been previously all filled with bytes specified in H7 as the src.
+		 * 
+		 * The dst, is the address that the page fault has occured. It is & with the negation
+		 * of page_size - 1 to round the address down to be page aligned
+		 * 
+		 * The len specifies how many bytes to copy from page to the address, which is just
+		 * page_size
+		 * 
+		 * mode and copy is both 0 to specify no special behavior of UFFDIO_COPY when copying
+		 * like not waking up the thread that's faulted, and zero out the kernel returned place
+		 * respectively.
 		 */
 		uffdio_copy.src = (unsigned long) page;
 		uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
@@ -170,12 +200,19 @@ fault_handler_thread(void *arg)
 
 		/* [H9]
 		 * Explain following in here.
+		 * This ioctl actually carries out the atomic copy in order to resolve
+		 * the page fault by copying the specified page into the faulted range
+		 * 
+		 * 0 is returned if successful copy, -1 if error and the corresponding
+		 * error is printed appropriately
 		 */
 		if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
 			errExit("ioctl-UFFDIO_COPY");
 
 		/* [H10]
 		 * Explain following in here.
+		 * Finally we print out the the number of bytes that's copied from
+		 * src to destination, this value is returned by the kernel.
 		 */
 		printf("        (uffdio_copy.copy returned %lld)\n",
                        uffdio_copy.copy);
