@@ -250,7 +250,7 @@ main(int argc, char *argv[])
 	 * 
 	 * len is computed by converting the user input from either base 16, base 8, or base 10
 	 * to a unsigned long and multiplied with the page_size. Len represent the total
-	 * number of bytes we are mapping later. 
+	 * number of bytes we are mapping later. Or in terms of pages, how many pages we are mapping
 	 */
 	page_size = sysconf(_SC_PAGE_SIZE);
 	len = strtoul(argv[1], NULL, 0) * page_size;
@@ -374,6 +374,28 @@ main(int argc, char *argv[])
 	/*
 	 * [U1]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * 
+	 * First, all these for loop will iterate len / 1024 times. In current machine
+	 * page_size is 4096 bytes, so if only one page is mapped then for loop will go 4 times.
+	 * 
+	 * The FIRST ITERATION that it go through the for loop it will trigger a page-fault
+	 * because the memory at addr[l] hasn't been mapped yet from virtual memory to physical memory.
+	 * Our fault handler thread comes in and map 'A' as the bytes to every byte in the first page.
+	 * 
+	 * If there are more than one page mapped, then after every fourth iteration will trigger another page-fault
+	 * So for example: If two pages are mapped, first iteration will trigger page-fault
+	 * and fault handler thread resolves the fault. Second, third, and fourth iteration it won't
+	 * trigger any page-fault because it is still reading the first page that's already been resolved.
+	 * 
+	 * But on the fifth iteration it will trigger another page fault, because the address at
+	 * addr[4096] is on the second page and hasn't been mapped yet. Then it will trigger another page-fault
+	 * this time the byte 'B' is mapped onto every byte of the second page.
+	 * 
+	 * Overall, the behavior of the following code is that depending on the number of pages mapped
+	 * it will print out 4 times of the same letter per page, then increment to the next letter for
+	 * the second page, and so on. After every 20th page, the letter wraps back from 'T' back to 'A' again.
+	 * 
+	 * The fault-handler will only trigger the number of pages times!
 	 */
 	printf("-----------------------------------------------------\n");
 	l = 0x0;
@@ -387,6 +409,8 @@ main(int argc, char *argv[])
 	/*
 	 * [U2]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * The code here will print out the same print out as the previous for loop, but this time
+	 * no page-fault will be triggered because it has already been resolved on the previous for loop.
 	 */
 	printf("-----------------------------------------------------\n");
 	l = 0x0;
@@ -400,6 +424,22 @@ main(int argc, char *argv[])
 	/*
 	 * [U3]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * So here the syscall madvise tell the kernel to just throw out all the mappings
+	 * that's done starting from address addr and extending len bytes. 
+	 * 
+	 * Essentially invalidating all the page-fault resolutions, and have to be resolved again.
+	 * If failed to invalidate the mapping -1 is returned and program exits.
+	 * 
+	 * The for loop after basically does the same thing as the first for loop
+	 * because we have invalidated all of the page mapping. It will trigger
+	 * page-fault again on first iteration through the for loop. However, since we are
+	 * continuing the lettering after the first loop it will not be mapping 'A' in the beginning
+	 * but basically picking up where the first loop have left off. If first for loop
+	 * stop at 'B' then the first page-fault here will pick up at 'C' assign them as each byte
+	 * to the pages.
+	 * 
+	 * Overall, same behavior as the first for loop except the lettering will be different because
+	 * it is picking off where first for loop have left off.
 	 */
 	printf("-----------------------------------------------------\n");
 	if (madvise(addr, len, MADV_DONTNEED)) {
@@ -416,6 +456,8 @@ main(int argc, char *argv[])
 	/*
 	 * [U4]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * Same behavior as the third for loop but without any page-fault. 
+	 * Because all of the page-fault has been resolved by the third for loop.
 	 */
 	printf("-----------------------------------------------------\n");
 	l = 0x0;
@@ -429,6 +471,11 @@ main(int argc, char *argv[])
 	/*
 	 * [U5]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * We again throw away the page mapping here, so we will have to page resolve again.
+	 * 
+	 * However, after the the page-fault has been triggered and resolved, we are
+	 * overwriting over the bytes on the page to be '@'. And all of the pages will be
+	 * overwritten with '@'. It just prints out '@' for each iteration each page.
 	 */
 	printf("-----------------------------------------------------\n");
 	if (madvise(addr, len, MADV_DONTNEED)) {
@@ -445,6 +492,10 @@ main(int argc, char *argv[])
 	/*
 	 * [U6]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * This for loop will follow the behavior as the fifth for loop but again
+	 * without any page-fault because all of the page-fault resolution has already occured.
+	 * And because the fifth for loop over-written all the pages with '@', this for loop
+	 * will only print out '@' just like the fifth for loop.
 	 */
 	printf("-----------------------------------------------------\n");
 	l = 0x0;
@@ -458,6 +509,9 @@ main(int argc, char *argv[])
 	/*
 	 * [U7]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * There is no madvise here, meaning that the page resolution we did in the fifth loop
+	 * still remains, thus there is no page-fault triggered here. It will just overwrite all
+	 * of the byte of the pages with '^' and print them out four '^' prints per page.
 	 */
 	printf("-----------------------------------------------------\n");
 	l = 0x0;
@@ -471,6 +525,9 @@ main(int argc, char *argv[])
 	/*
 	 * [U8]
 	 * Briefly explain the behavior of the output that corresponds with below section.
+	 * Same behavior as the seventh for loop, because the page is still valid and contains
+	 * writing from the seventh for loop it will also print out four '^' per page.
+	 * Without triggering any page-fault.
 	 */
 	printf("-----------------------------------------------------\n");
 	l = 0x0;
