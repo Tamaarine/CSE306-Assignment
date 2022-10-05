@@ -10,14 +10,14 @@ int main(int argc, char ** argv) {
     
     /* Parse the first number and second number */
     errno = 0;
-    int local_port = strtol(argv[1], NULL, 0);
+    int listen_port = strtol(argv[1], NULL, 0);
     if (errno) {
         printf("Converting number failed\n");
         exit(EXIT_FAILURE);
     }
     
     errno = 0;
-    int remote_port = strtol(argv[2], NULL, 0);
+    int send_port = strtol(argv[2], NULL, 0);
     if (errno) {
         printf("Converting number failed\n");
         exit(EXIT_FAILURE);
