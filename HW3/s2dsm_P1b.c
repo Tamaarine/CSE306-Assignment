@@ -12,16 +12,24 @@
 
 #define MAX_SIZE 50
 
-static void * server_thread(void * arg) {
-    /* This server thread will be accepting the connections */
-    struct sockaddr_in address; /* Used for setting up the server accept socket */
-    int server_port = *((int *)arg); /* Get the port that's passed into the thread */
+/* Use to indicate whether this process is the first process or not */
+static int first_process = -1;
+static int accepted_socket; /* Global socket to talk to other process */
+
+
+/* This function is used to establish which process is first */
+static void * handshake(void * arg) {
+    int * pid_buffer = malloc(sizeof(pid_t)); /* Read other process' pid*/
+    int current_pid = getpid();   /* Get current process' pid */
+    
+    /* Socket stuff */
     int sockfd; /* Socket used for listening */
-    int opt = 1; /* Enable boolean options */
-    int accepted_socket; /* Socket that's accepted */
+    struct sockaddr_in address; /* Used for setting up the server accept socket */
+    int opt = 1;
+    int server_port = *((int *)arg);
     int address_len = sizeof(address);
     
-    printf("I'm the server thread and im going to listen on %d\n", server_port);
+    int bytes_read;
     
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket creation error");
@@ -57,7 +65,37 @@ static void * server_thread(void * arg) {
     }
     
     printf("Accepted connection\n");
-        
+    
+    /* Read from the pid to compare pid */
+    if ((bytes_read = read(accepted_socket, pid_buffer, sizeof(pid_t))) < 0) {
+        perror("Reading error");
+        exit(EXIT_FAILURE);
+    }
+    
+    printf("Current %d the other %d\n", current_pid, *pid_buffer);
+    if (current_pid < *pid_buffer)
+        first_process = 1;
+    else
+        first_process = 0;
+    
+    pthread_exit(NULL);    
+}
+
+
+/* Used to handle the rest of the server reading logic */
+static void * server_thread(void * arg) {
+    /* This thread will be handle the reading from socket */    
+    // char * buffer = malloc(sizeof(char) * MAX_SIZE); /* Used for storing messages from socket */
+    int * page_buffer;
+    int bytes_read;
+    
+    if (!first_process) {
+        page_buffer = malloc(sizeof(int));
+        if ((bytes_read = read(accepted_socket, page_buffer, sizeof(int)))) {
+            printf("The first process said %d pages\n", *page_buffer);
+        }
+    }
+    
     pthread_exit(NULL);
 }
 
@@ -65,13 +103,17 @@ int main(int argc, char ** argv) {
     int connect_socket; /* Used for connecting to the other process */
     struct sockaddr_in address_out;
     // char * inputBuf; /* Used for storing the user input */
-    // int address_len = sizeof(address);
+    int bytes_write;
+    int pages; /* Pages input from user */
+    int items_read; /* Used for scanf */
     
     /* Used for creating the thread.
      * The thread acts as the server to accept incoming connections
      * The main thread will act as the message sender
      */
     pthread_t thread_id;
+    
+    int pid_buffer;
     
     if (argc != 3) {
         printf("You will need to specify 2 arguments!\n");
@@ -98,14 +140,9 @@ int main(int argc, char ** argv) {
     printf("Listening port is %d sending port is %d\n", *listen_port, *send_port);
     
     /* Need to spin up a thread to handle the connection */    
-    pthread_create(&thread_id, NULL, server_thread, (void *) listen_port);
+    pthread_create(&thread_id, NULL, handshake, (void *) listen_port);
     
-    // inputBuf = malloc(sizeof(char) * MAX_SIZE);
-    
-    // inputBuf = fgets(inputBuf, MAX_SIZE, stdin);
-    
-    // printf("The user entered -%s-\n", inputBuf);
-    
+    /* Then connect to the other server in the main thread */
     connect_socket = socket(AF_INET, SOCK_STREAM, 0);
     
     address_out.sin_family = AF_INET;
@@ -120,6 +157,35 @@ int main(int argc, char ** argv) {
     while(connect(connect_socket, (struct sockaddr *)&address_out, sizeof(address_out)) < 0) {
         // perror("Connection failed retrying");
         sleep(1);
+    }
+    
+    /* Get current pid */
+    pid_buffer = getpid();
+    
+    /* Handshake doing */
+    if ((bytes_write = write(connect_socket, &pid_buffer, sizeof(pid_t))) < 0) {
+        perror("Writing error");
+        exit(EXIT_FAILURE);
+    }
+    
+    /* Wait for handshake to complete */
+    pthread_join(thread_id, NULL);
+    
+    /* Start the server thread to handle reading from socket */
+    pthread_create(&thread_id, NULL, server_thread, NULL);
+    
+    if (first_process) {
+        printf("> How many pages would you like to allocate (greater than 0)? ");
+        
+        if ((items_read = scanf("%d", &pages) < 0)) {
+            perror("Scanf error");
+            exit(EXIT_FAILURE);
+        }
+        
+        if ((bytes_write = write(connect_socket, &pages, sizeof(pages))) < 0) {
+            perror("Writing error");
+            exit(EXIT_FAILURE);
+        }
     }
     
     pthread_join(thread_id, NULL);
