@@ -224,8 +224,10 @@ int main(int argc, char ** argv) {
     pthread_join(thread_id, NULL);
     
     /* Start the thread to receive the message if you're not the 1st process */    
-    if (!first_process)
+    if (!first_process) {
         pthread_create(&thread_id, NULL, second_process_receive, NULL);
+        pthread_join(thread_id, NULL);
+    }
     else {
         printf("> How many pages would you like to allocate (greater than 0)? ");
         
@@ -301,10 +303,9 @@ int main(int argc, char ** argv) {
         printf("> For which page? (0-%d, or -1 for all): ", (int)(len / page_size));
         if ((fgets_ret = fgets(which_page_raw, MAX_SIZE, stdin)) < 0)
             errExit("fgets failed");
-        else if (fgets_ret == 0) {
+        else if (fgets_ret == 0)
             break;
-    }
-    
+        
         errno = 0;
         which_page = strtol(which_page_raw, NULL, 10);
         if (errno)
