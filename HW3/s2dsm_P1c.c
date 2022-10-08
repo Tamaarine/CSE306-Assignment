@@ -125,27 +125,21 @@ int main(int argc, char ** argv) {
     
     int pid_buffer;
     
-    if (argc != 3) {
-        printf("You will need to specify 2 arguments!\n");
-        exit(EXIT_FAILURE);
-    }
+    if (argc != 3)
+        errExit("You will need to specify 2 arguments!\n");
     
     /* Parse the first number and second number */
     errno = 0;
     int * listen_port = malloc(sizeof(int));
     *listen_port = strtol(argv[1], NULL, 0);
-    if (errno) {
-        perror("Converting number failed");
-        exit(EXIT_FAILURE);
-    }
+    if (errno)
+        errExit("Converting number failed");
     
     errno = 0;
     int * send_port = malloc(sizeof(int));
     *send_port = strtol(argv[2], NULL, 0);
-    if (errno) {
-        perror("Converting number failed");
-        exit(EXIT_FAILURE);
-    }
+    if (errno)
+        errExit("Converting number failed");
     
     printf("Listening on port %d sending on port %d\n", *listen_port, *send_port);
     
@@ -160,10 +154,8 @@ int main(int argc, char ** argv) {
     address_out.sin_family = AF_INET;
     address_out.sin_port = htons(*send_port);
     
-    if(inet_pton(AF_INET, "127.0.0.1", &address_out.sin_addr) <= 0) {
-		perror("inet_pton failed");
-		exit(EXIT_FAILURE);
-	}
+    if(inet_pton(AF_INET, "127.0.0.1", &address_out.sin_addr) <= 0)
+		errExit("inet_pton failed");
     
     /* Client connect here to the other port */
     while(connect(connect_socket, (struct sockaddr *)&address_out, sizeof(address_out)) < 0) {
@@ -175,10 +167,8 @@ int main(int argc, char ** argv) {
     pid_buffer = getpid();
     
     /* Handshake doing */
-    if ((bytes_write = write(connect_socket, &pid_buffer, sizeof(pid_t))) < 0) {
-        perror("Writing error");
-        exit(EXIT_FAILURE);
-    }
+    if ((bytes_write = write(connect_socket, &pid_buffer, sizeof(pid_t))) < 0)
+        errExit("Writing error");
     
     /* Wait for handshake to complete */
     pthread_join(thread_id, NULL);
@@ -192,26 +182,20 @@ int main(int argc, char ** argv) {
         /* Big enough to store a pointer and an integer */
         struct init_info info;
         
-        if ((fgets_ret = fgets(pages_raw, MAX_SIZE, stdin)) < 0) {
-            perror("fgets failed");
-            exit(EXIT_FAILURE);
-        }
+        if ((fgets_ret = fgets(pages_raw, MAX_SIZE, stdin)) < 0)
+            errExit("fgets failed");
         
         errno = 0;
         pages = strtol(pages_raw, NULL, 10);
-        if (errno) {
-            perror("Converting number failed");
-            exit(EXIT_FAILURE);
-        }
+        if (errno)
+            errExit("Converting number failed");
         
         len = page_size * pages; 
         
         mmap_addr = mmap(NULL, len, PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-        if (mmap_addr == MAP_FAILED) {
-            perror("mmap failed");
-            exit(EXIT_FAILURE);
-        }
+        if (mmap_addr == MAP_FAILED)
+            errExit("mmap failed");
         
         printf("-----------------------------------------------------\n");
         printf("First process\nmmap_address: %p size: %ld\n", mmap_addr, len);
