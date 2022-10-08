@@ -98,8 +98,12 @@ static void * second_process_receive(void * arg) {
     int bytes_read;
     
     struct init_info info;
-    if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info)) < 0)) {
+    if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info))) < 0) {
         perror("Read error");
+        exit(EXIT_FAILURE);
+    }
+    else if (bytes_read == 0) {
+        printf("The connection was resetted %d\n", bytes_read);
         exit(EXIT_FAILURE);
     }
     
