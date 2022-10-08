@@ -9,15 +9,12 @@ SRC_FILES = $(wildcard *.c)
 # Turn all the .c files into .o files
 OBJ_FILES = $(SRC_FILES:.c=.o)
 
-# Default goal to execute
-# which requires the binary to be made
-all: $(BIN)
+part1: s2dsm_P1b.o
+	$(CC) s2dsm_P1b.o -o $(BIN)
 
-# The target is the binary test_syscall
-# with the prerequisite of the necessary .o files
-$(BIN):$(OBJ_FILES)
-	$(CC) $^ -o $@
-	
+part2: s2dsm_P1c.o
+	$(CC) s2dsm_P1c.o -o $(BIN)
+
 # Rules on how to convert .c into .o object files
 %.o:%.c 
 	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
