@@ -92,27 +92,24 @@ static void * handshake(void * arg) {
 }
 
 
-/* Used to handle the rest of the server reading logic */
-static void * server_thread(void * arg) {
-    /* This thread will be handle the reading from socket */    
-    // char * buffer = malloc(sizeof(char) * MAX_SIZE); /* Used for storing messages from socket */
+/* Used for second process only to receive handshake msg */
+static void * second_process_receive(void * arg) {
+    /* This thread will be handle the reading from socket for 2nd process */    
     int bytes_read;
     
-    if (!first_process) {
-        struct init_info info;
-        if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info)) < 0)) {
-            perror("Read error");
-            exit(EXIT_FAILURE);
-        }
-        
-        /* Do the mmap for the second process using first process' mmap_addr */
-        len = info.len;
-        mmap_addr = mmap(info.mmap_addr, len, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-        
-        printf("-----------------------------------------------------\n");
-        printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
+    struct init_info info;
+    if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info)) < 0)) {
+        perror("Read error");
+        exit(EXIT_FAILURE);
     }
+    
+    /* Do the mmap for the second process using first process' mmap_addr */
+    len = info.len;
+    mmap_addr = mmap(info.mmap_addr, len, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    
+    printf("-----------------------------------------------------\n");
+    printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
     
     /* Carry out the rest of the operation */
     pthread_exit(NULL);
@@ -193,10 +190,10 @@ int main(int argc, char ** argv) {
     /* Wait for handshake to complete */
     pthread_join(thread_id, NULL);
     
-    /* Start the server thread to handle reading from socket */
-    pthread_create(&thread_id, NULL, server_thread, NULL);
-    
-    if (first_process) {
+    /* Start the thread to receive the message if you're not the 1st process */    
+    if (!first_process)
+        pthread_create(&thread_id, NULL, second_process_receive, NULL);
+    else {
         printf("> How many pages would you like to allocate (greater than 0)? ");
         
         /* Big enough to store a pointer and an integer */
@@ -230,6 +227,7 @@ int main(int argc, char ** argv) {
         }
     }
     
+    /* Wait for reading 7 printing to be done by 2nd process thread */
     pthread_join(thread_id, NULL);
     
     return 0;
