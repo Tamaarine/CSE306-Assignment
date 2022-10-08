@@ -9,12 +9,22 @@
 #include <pthread.h>
 #include <string.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #define MAX_SIZE 50
 
 /* Use to indicate whether this process is the first process or not */
 static int first_process = -1;
 static int accepted_socket; /* Global socket to talk to other process */
+static int page_size;
+static unsigned long len;
+static char * mmap_addr;
+
+/* Struct to be send over socket */
+struct init_info {
+    char * mmap_addr;
+    unsigned long len;
+};
 
 
 /* This function is used to establish which process is first */
@@ -86,16 +96,22 @@ static void * handshake(void * arg) {
 static void * server_thread(void * arg) {
     /* This thread will be handle the reading from socket */    
     // char * buffer = malloc(sizeof(char) * MAX_SIZE); /* Used for storing messages from socket */
-    int * page_buffer;
     int bytes_read;
     
     if (!first_process) {
-        page_buffer = malloc(sizeof(int));
-        if ((bytes_read = read(accepted_socket, page_buffer, sizeof(int)))) {
-            printf("The first process said %d pages\n", *page_buffer);
+        struct init_info info;
+        if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info)) < 0)) {
+            perror("Read error");
+            exit(EXIT_FAILURE);
         }
+        
+        mmap_addr = info.mmap_addr;
+        len = info.len;
+        
+        printf("The mmap_address is %p\nThe len is %ld\n", info.mmap_addr, info.len);
     }
     
+    /* Carry out the rest of the operation */
     pthread_exit(NULL);
 }
 
@@ -139,6 +155,8 @@ int main(int argc, char ** argv) {
     
     printf("Listening port is %d sending port is %d\n", *listen_port, *send_port);
     
+    page_size = sysconf(_SC_PAGE_SIZE);
+    
     /* Need to spin up a thread to handle the connection */    
     pthread_create(&thread_id, NULL, handshake, (void *) listen_port);
     
@@ -177,12 +195,29 @@ int main(int argc, char ** argv) {
     if (first_process) {
         printf("> How many pages would you like to allocate (greater than 0)? ");
         
+        /* Big enough to store a pointer and an integer */
+        struct init_info info;
+        
         if ((items_read = scanf("%d", &pages) < 0)) {
             perror("Scanf error");
             exit(EXIT_FAILURE);
         }
         
-        if ((bytes_write = write(connect_socket, &pages, sizeof(pages))) < 0) {
+        len = page_size * pages; 
+        
+        mmap_addr = mmap(NULL, len, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (mmap_addr == MAP_FAILED) {
+            perror("mmap failed");
+            exit(EXIT_FAILURE);
+        }
+        
+        /* Write both mmap_address + len into struct */
+        info.mmap_addr = mmap_addr;
+        info.len = len;
+        
+        /* Send over as the first message after handshake*/
+        if ((bytes_write = write(connect_socket, &info, sizeof(struct init_info))) < 0) {
             perror("Writing error");
             exit(EXIT_FAILURE);
         }
