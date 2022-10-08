@@ -175,8 +175,10 @@ int main(int argc, char ** argv) {
     
     int pid_buffer;
     
-    if (argc != 3)
-        errExit("You will need to specify 2 arguments!\n");
+    if (argc != 3) {
+        printf("You will need to specify 2 arguments!\n");
+        exit(EXIT_FAILURE);
+    }
     
     /* Parse the first number and second number */
     errno = 0;
