@@ -10,6 +10,10 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <linux/userfaultfd.h>
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include <poll.h>
 
 #define MAX_SIZE 50
 #define errExit(str) do { \
@@ -23,6 +27,7 @@ static int accepted_socket; /* Global socket to talk to other process */
 static int page_size;
 static unsigned long len;
 static char * mmap_addr;
+static long uffd;
 
 /* Struct to be send over socket */
 struct init_info {
@@ -84,10 +89,33 @@ static void * handshake(void * arg) {
 }
 
 
+static void * fault_handler_thread(void * arg) {
+    long uffd = (long)arg;
+    
+    for (;;) {
+        struct pollfd pollfd;
+        int nready;
+        
+        pollfd.fd = uffd;
+        pollfd.events = POLLIN;
+        nready = poll(&pollfd, 1, -1);
+        if (nready == -1)
+            errExit("Poll failed");
+        
+        printf("\nfault_handler_thread():\n");
+		printf("    poll() returns: nready = %d; "
+                       "POLLIN = %d; POLLERR = %d\n", nready,
+                       (pollfd.revents & POLLIN) != 0,
+                       (pollfd.revents & POLLERR) != 0);
+    }
+}
+
+
 /* Used for second process only to receive handshake msg */
 static void * second_process_receive(void * arg) {
     /* This thread will be handle the reading from socket for 2nd process */    
     int bytes_read;
+    pthread_t thread_id;
     
     struct init_info info;
     if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info))) < 0)
@@ -102,6 +130,27 @@ static void * second_process_receive(void * arg) {
     
     printf("-----------------------------------------------------\n");
     printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
+    
+    /* Register the userfaultfd here for first process */
+    struct uffdio_api uffdio_api;
+    struct uffdio_register uffdio_register;
+    
+    uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+    if (uffd == -1)
+        errExit("Userfaultfd error");
+    
+    uffdio_api.api = UFFD_API;
+    uffdio_api.features = 0;
+    if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
+        errExit("itctl-UFFDIO_API error");
+    
+    uffdio_register.range.start = (unsigned long) mmap_addr;
+    uffdio_register.range.len = len;
+    uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
+    if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
+        errExit("itctl-UFFDIO_REGISTER error");
+    
+    pthread_create(&thread_id, NULL, fault_handler_thread, (void *)uffd);
     
     /* Carry out the rest of the operation */
     pthread_exit(NULL);
@@ -122,6 +171,7 @@ int main(int argc, char ** argv) {
      * The main thread will act as the message sender
      */
     pthread_t thread_id;
+    pthread_t fault_thread_id;
     
     int pid_buffer;
     
@@ -205,14 +255,68 @@ int main(int argc, char ** argv) {
         info.len = len;
         
         /* Send over as the first message after handshake*/
-        if ((bytes_write = write(connect_socket, &info, sizeof(struct init_info))) < 0) {
-            perror("Writing error");
-            exit(EXIT_FAILURE);
-        }
+        if ((bytes_write = write(connect_socket, &info, sizeof(struct init_info))) < 0)
+            errExit("Writing error");
+        
+        /* Register the userfaultfd here for first process */
+        struct uffdio_api uffdio_api;
+        struct uffdio_register uffdio_register;
+        long uffd;
+        
+        uffd = syscall(__NR_userfaultfd, O_CLOEXEC | O_NONBLOCK);
+        if (uffd == -1)
+            errExit("Userfaultfd error");
+        
+        uffdio_api.api = UFFD_API;
+        uffdio_api.features = 0;
+        if (ioctl(uffd, UFFDIO_API, &uffdio_api) == -1)
+            errExit("itctl-UFFDIO_API error");
+        
+        uffdio_register.range.start = (unsigned long) mmap_addr;
+        uffdio_register.range.len = len;
+        uffdio_register.mode = UFFDIO_REGISTER_MODE_MISSING;
+        if (ioctl(uffd, UFFDIO_REGISTER, &uffdio_register) == -1)
+            errExit("itctl-UFFDIO_REGISTER error");
+        
+        pthread_create(&fault_thread_id, NULL, fault_handler_thread, (void *)uffd);
     }
     
-    /* Wait for reading 7 printing to be done by 2nd process thread */
-    pthread_join(thread_id, NULL);
+    printf("-----------------------------------------------------\n");
     
+    /* Used for the while loop for reading userinput */
+    char op[MAX_SIZE];
+    char which_page_raw[MAX_SIZE];
+    int which_page;    
+    
+    /* Now the messages printed are synced we are begin while loop */
+    while (1) {
+        printf("> Which command should I run? (r:read, w:write): ");
+        if ((fgets_ret = fgets(op, MAX_SIZE, stdin)) < 0)
+            errExit("fgets failed");
+        else if (fgets_ret == 0) {
+            break;
+        }
+        op[strcspn(op, "\n")] = 0;
+        
+        printf("> For which page? (0-%d, or -1 for all): ", (int)(len / page_size));
+        if ((fgets_ret = fgets(which_page_raw, MAX_SIZE, stdin)) < 0)
+            errExit("fgets failed");
+        else if (fgets_ret == 0) {
+            break;
+    }
+    
+        errno = 0;
+        which_page = strtol(which_page_raw, NULL, 10);
+        if (errno)
+            errExit("Converting number failed");
+        
+        printf("user entered %s with page %d\n", op, which_page);
+        
+        if ((bytes_write = write(accepted_socket, op, MAX_SIZE)) < 0)
+            errExit("Writing error");
+        
+        mmap_addr[page_size * which_page] = 69;
+    }
+    // pthread_join(thread_id, NULL);
     return 0;
 }
