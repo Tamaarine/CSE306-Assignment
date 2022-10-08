@@ -82,7 +82,7 @@ static void * handshake(void * arg) {
         exit(EXIT_FAILURE);
     }
     
-    printf("Current %d the other %d\n", current_pid, *pid_buffer);
+    printf("Current pid: %d other pid: %d\n", current_pid, *pid_buffer);
     if (current_pid < *pid_buffer)
         first_process = 1;
     else
@@ -105,15 +105,19 @@ static void * server_thread(void * arg) {
             exit(EXIT_FAILURE);
         }
         
-        mmap_addr = info.mmap_addr;
+        /* Do the mmap for the second process using first process' mmap_addr */
         len = info.len;
+        mmap_addr = mmap(info.mmap_addr, len, PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         
-        printf("The mmap_address is %p\nThe len is %ld\n", info.mmap_addr, info.len);
+        printf("-----------------------------------------------------\n");
+        printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
     }
     
     /* Carry out the rest of the operation */
     pthread_exit(NULL);
 }
+
 
 int main(int argc, char ** argv) {
     int connect_socket; /* Used for connecting to the other process */
@@ -153,7 +157,7 @@ int main(int argc, char ** argv) {
         exit(EXIT_FAILURE);
     }
     
-    printf("Listening port is %d sending port is %d\n", *listen_port, *send_port);
+    printf("Listening on port %d sending on port %d\n", *listen_port, *send_port);
     
     page_size = sysconf(_SC_PAGE_SIZE);
     
@@ -211,6 +215,9 @@ int main(int argc, char ** argv) {
             perror("mmap failed");
             exit(EXIT_FAILURE);
         }
+        
+        printf("-----------------------------------------------------\n");
+        printf("First process\nmmap_address: %p size: %ld\n", mmap_addr, len);
         
         /* Write both mmap_address + len into struct */
         info.mmap_addr = mmap_addr;
