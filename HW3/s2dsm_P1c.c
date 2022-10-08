@@ -12,6 +12,10 @@
 #include <sys/mman.h>
 
 #define MAX_SIZE 50
+#define errExit(str) do { \
+    perror(str); \
+    exit(EXIT_FAILURE); \
+} while(0)
 
 /* Use to indicate whether this process is the first process or not */
 static int first_process = -1;
@@ -41,46 +45,34 @@ static void * handshake(void * arg) {
     
     int bytes_read;
     
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Socket creation error");
-        exit(EXIT_FAILURE);
-    }
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        errExit("Socket creation error");
     
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-                &opt, sizeof(opt))) {
-        perror("Setsockopt failed");
-        exit(EXIT_FAILURE);
-    }
+                &opt, sizeof(opt)))
+        errExit("Setsockopt failed");
     
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(server_port);
     
     /*Bind the sockfd to the address struct  */
-    if (bind(sockfd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("Bind failed");
-        exit(EXIT_FAILURE);
-    }
+    if (bind(sockfd, (struct sockaddr *)&address, sizeof(address)) < 0)
+        errExit("Bind failed");
     
-    if (listen(sockfd, 3)) {
-        perror("Listen failed");
-        exit(EXIT_FAILURE);
-    }
+    if (listen(sockfd, 3))
+        errExit("Listen failed");
     
     /* Wait for connection */
     if ((accepted_socket = accept(sockfd, (struct sockaddr *)&address, 
-            (socklen_t *)&address_len)) < 0) {
-        perror("Accept failed");
-        exit(EXIT_FAILURE);
-    }
+            (socklen_t *)&address_len)) < 0)
+        errExit("Accept failed");
     
     printf("Accepted connection\n");
     
     /* Read from the pid to compare pid */
-    if ((bytes_read = read(accepted_socket, pid_buffer, sizeof(pid_t))) < 0) {
-        perror("Reading error");
-        exit(EXIT_FAILURE);
-    }
+    if ((bytes_read = read(accepted_socket, pid_buffer, sizeof(pid_t))) < 0)
+        errExit("Reading error");
     
     printf("Current pid: %d other pid: %d\n", current_pid, *pid_buffer);
     if (current_pid < *pid_buffer)
