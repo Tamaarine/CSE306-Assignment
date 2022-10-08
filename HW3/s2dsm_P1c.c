@@ -91,6 +91,18 @@ static void * handshake(void * arg) {
 
 static void * fault_handler_thread(void * arg) {
     long uffd = (long)arg;
+	static struct uffd_msg msg;   /* Data read from userfaultfd */
+	ssize_t nread;
+	struct uffdio_copy uffdio_copy;
+	static char *page = NULL;
+    
+    /* This page will be used to resolve the page fault. handle by kernel for its page fault */
+    if (page == NULL) {
+		page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
+			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		if (page == MAP_FAILED)
+			errExit("mmap");
+	}
     
     for (;;) {
         struct pollfd pollfd;
@@ -102,11 +114,34 @@ static void * fault_handler_thread(void * arg) {
         if (nready == -1)
             errExit("Poll failed");
         
-        printf("\nfault_handler_thread():\n");
-		printf("    poll() returns: nready = %d; "
-                       "POLLIN = %d; POLLERR = %d\n", nready,
-                       (pollfd.revents & POLLIN) != 0,
-                       (pollfd.revents & POLLERR) != 0);
+        nread = read(uffd, &msg, sizeof(msg));
+		if (nread == 0)
+			errExit("EOF on userfaultfd!");
+        else if (nread == -1)
+            errExit("Read failed");
+        
+        if (msg.event != UFFD_EVENT_PAGEFAULT) {
+			fprintf(stderr, "Unexpected event on userfaultfd\n");
+			exit(EXIT_FAILURE);
+		}
+        
+        printf("  [x]  PAGEFAULT\n");
+        
+        memset(page, 0, page_size);
+        
+        /* Don't need to initialize the content of page
+         * because they are defaulted to 0
+         */        
+        uffdio_copy.src = (unsigned long) page;
+		uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
+			~(page_size - 1);
+		uffdio_copy.len = page_size;
+		uffdio_copy.mode = 0;
+		uffdio_copy.copy = 0;
+        
+        /* Copy the allocated page to the faulted page */
+        if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
+			errExit("ioctl-UFFDIO_COPY");
     }
 }
 
@@ -292,7 +327,10 @@ int main(int argc, char ** argv) {
     /* Used for the while loop for reading userinput */
     char op[MAX_SIZE];
     char which_page_raw[MAX_SIZE];
-    int which_page;    
+    int which_page;
+    char * msg = malloc(sizeof(char) * page_size);
+    
+    int max_page = (int)(len / page_size);
     
     /* Now the messages printed are synced we are begin while loop */
     while (1) {
@@ -303,8 +341,21 @@ int main(int argc, char ** argv) {
             break;
         }
         op[strcspn(op, "\n")] = 0;
+        if (op[0] != 'r' && op[0] != 'w') {
+            printf("Invalid operation specified (r:read, w:write)\n");
+            continue;
+        }
+        else if (op[0] == 'w') {
+            printf("> Type your new message: ");
+            if ((fgets_ret = fgets(msg, page_size, stdin)) < 0)
+                errExit("fgets failed");
+            else if (fgets_ret == 0) {
+                break;
+            }
+            msg[strcspn(msg, "\n")] = 0;
+        }
         
-        printf("> For which page? (0-%d, or -1 for all): ", (int)(len / page_size));
+        printf("> For which page? (0-%d, or -1 for all): ", max_page - 1);
         if ((fgets_ret = fgets(which_page_raw, MAX_SIZE, stdin)) < 0)
             errExit("fgets failed");
         else if (fgets_ret == 0)
@@ -314,13 +365,42 @@ int main(int argc, char ** argv) {
         which_page = strtol(which_page_raw, NULL, 10);
         if (errno)
             errExit("Converting number failed");
+        if (which_page < -1 || which_page >= max_page) {
+            printf("Invalid page number specified (0-%d, or -1 for all)\n", max_page - 1);
+            continue;
+        }
         
-        printf("user entered %s with page %d\n", op, which_page);
-        
-        if ((bytes_write = write(accepted_socket, op, MAX_SIZE)) < 0)
-            errExit("Writing error");
-        
-        mmap_addr[page_size * which_page] = 69;
+        if (which_page == -1) {
+            /* Print out everything */
+            for (int i=0;i<max_page;i++) {
+                char * address_loc = mmap_addr + (i * page_size);
+                *address_loc += 1;
+                
+                if (op[0] == 'r') {
+                    *address_loc -= 1;
+                    printf("  [*]  Page %d:\n%s\n", i, address_loc);
+                }
+                else {
+                    *address_loc -= 1;
+                    strcpy(address_loc, msg);
+                    printf("  [*]  Page %d:\n%s\n", i, address_loc);
+                }
+            }
+        }
+        else {
+            char * address_loc = mmap_addr + (which_page * page_size);
+            *address_loc += 1; /* This is done to touch the byte somehow */
+            
+            if (op[0] == 'r') {
+                *address_loc -= 1;
+                printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
+            }
+            else {
+                *address_loc -= 1;
+                strcpy(address_loc, msg);
+                printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
+            }
+        }
     }
     // pthread_join(thread_id, NULL);
     return 0;
