@@ -103,7 +103,7 @@ static void * second_process_receive(void * arg) {
         exit(EXIT_FAILURE);
     }
     else if (bytes_read == 0) {
-        printf("The connection was resetted %d\n", bytes_read);
+        printf("The connection was resetted \n");
         exit(EXIT_FAILURE);
     }
     
