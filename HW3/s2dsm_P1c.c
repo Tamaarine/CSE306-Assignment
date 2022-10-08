@@ -120,8 +120,10 @@ static void * second_process_receive(void * arg) {
     struct init_info info;
     if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info))) < 0)
         errExit("Read error");
-    else if (bytes_read == 0)
-        errExit("The connection was resetted \n");
+    else if (bytes_read == 0) {
+        printf("The connection was resetted by peer\n");
+        exit(EXIT_FAILURE);
+    }
     
     /* Do the mmap for the second process using first process' mmap_addr */
     len = info.len;
