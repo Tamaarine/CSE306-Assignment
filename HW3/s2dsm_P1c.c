@@ -126,7 +126,8 @@ int main(int argc, char ** argv) {
     // char * inputBuf; /* Used for storing the user input */
     int bytes_write;
     int pages; /* Pages input from user */
-    int items_read; /* Used for scanf */
+    char pages_raw[50];
+    char * fgets_ret;
     
     /* Used for creating the thread.
      * The thread acts as the server to accept incoming connections
@@ -203,8 +204,15 @@ int main(int argc, char ** argv) {
         /* Big enough to store a pointer and an integer */
         struct init_info info;
         
-        if ((items_read = scanf("%d", &pages) < 0)) {
-            perror("Scanf error");
+        if ((fgets_ret = fgets(pages_raw, MAX_SIZE, stdin)) < 0) {
+            perror("fgets failed");
+            exit(EXIT_FAILURE);
+        }
+        
+        errno = 0;
+        pages = strtol(pages_raw, NULL, 10);
+        if (errno) {
+            perror("Converting number failed");
             exit(EXIT_FAILURE);
         }
         
