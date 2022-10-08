@@ -90,14 +90,10 @@ static void * second_process_receive(void * arg) {
     int bytes_read;
     
     struct init_info info;
-    if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info))) < 0) {
-        perror("Read error");
-        exit(EXIT_FAILURE);
-    }
-    else if (bytes_read == 0) {
-        printf("The connection was resetted \n");
-        exit(EXIT_FAILURE);
-    }
+    if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info))) < 0)
+        errExit("Read error");
+    else if (bytes_read == 0)
+        errExit("The connection was resetted \n");
     
     /* Do the mmap for the second process using first process' mmap_addr */
     len = info.len;
