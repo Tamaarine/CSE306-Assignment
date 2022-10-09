@@ -152,7 +152,7 @@ static void * second_process_receive(void * arg) {
     int bytes_read;
     pthread_t thread_id;
     
-    struct init_info info;
+    struct init_info info;          /* Used for storing the bytes read from first process */
     if ((bytes_read = read(accepted_socket, &info, sizeof(struct init_info))) < 0)
         errExit("Read error");
     else if (bytes_read == 0) {
@@ -164,6 +164,8 @@ static void * second_process_receive(void * arg) {
     len = info.len;
     mmap_addr = mmap(info.mmap_addr, len, PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (mmap_addr == MAP_FAILED)
+			errExit("mmap failed");
     
     printf("-----------------------------------------------------\n");
     printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
