@@ -195,22 +195,17 @@ static void * second_process_receive(void * arg) {
 
 
 int main(int argc, char ** argv) {
-    int connect_socket; /* Used for connecting to the other process */
-    struct sockaddr_in address_out;
-    // char * inputBuf; /* Used for storing the user input */
-    int bytes_write;
-    int pages; /* Pages input from user */
-    char pages_raw[50];
-    char * fgets_ret;
+    int connect_socket;                 /* Used for connecting to the other process */
+    struct sockaddr_in address_out;     /* Address of other process */
+    int bytes_write;                    /* Used for write() */
+    int pages;                          /* Pages input from user */
+    char pages_raw[50];                 /* Buffer for storing fgets for # pages */
+    char * fgets_ret;                   /* fgets_ret */
     
-    /* Used for creating the thread.
-     * The thread acts as the server to accept incoming connections
-     * The main thread will act as the message sender
-     */
     pthread_t thread_id;
-    pthread_t fault_thread_id;
+    pthread_t fault_thread_id;      /* fault handler id*/
     
-    int pid_buffer;
+    int pid_buffer;                 /* Storing current pid */
     
     if (argc != 3) {
         printf("You will need to specify 2 arguments!\n");
@@ -239,10 +234,10 @@ int main(int argc, char ** argv) {
     
     page_size = sysconf(_SC_PAGE_SIZE);
     
-    /* Need to spin up a thread to handle the connection */    
+    /* Do the handshake that listen to establish who is first/second */
     pthread_create(&thread_id, NULL, handshake, (void *) listen_port);
     
-    /* Then connect to the other server in the main thread */
+    /* Socket to connect to other thread */
     connect_socket = socket(AF_INET, SOCK_STREAM, 0);
     
     address_out.sin_family = AF_INET;
@@ -260,7 +255,7 @@ int main(int argc, char ** argv) {
     /* Get current pid */
     pid_buffer = getpid();
     
-    /* Handshake doing */
+    /* Sending the current pid to the other thread. Will receive by handshake thread */
     if ((bytes_write = write(connect_socket, &pid_buffer, sizeof(pid_t))) < 0)
         errExit("Writing error");
     
@@ -286,7 +281,7 @@ int main(int argc, char ** argv) {
         if (errno)
             errExit("Converting number failed");
         
-        len = page_size * pages; 
+        len = page_size * pages;
         
         mmap_addr = mmap(NULL, len, PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -330,14 +325,13 @@ int main(int argc, char ** argv) {
     printf("-----------------------------------------------------\n");
     
     /* Used for the while loop for reading userinput */
-    char op[MAX_SIZE];
-    char which_page_raw[MAX_SIZE];
-    int which_page;
-    char * msg = malloc(sizeof(char) * page_size);
+    char op[MAX_SIZE];              /* Storing user input for operation */
+    char which_page_raw[MAX_SIZE];  /* Storing page input */
+    int which_page;                 /* Parsed of which_page_raw */
+    char * msg = malloc(sizeof(char) * page_size);      /* Msg buffer for writing to page */
     
     int max_page = (int)(len / page_size);
     
-    /* Now the messages printed are synced we are begin while loop */
     while (1) {
         printf("> Which command should I run? (r:read, w:write): ");
         if ((fgets_ret = fgets(op, MAX_SIZE, stdin)) < 0)
@@ -379,7 +373,7 @@ int main(int argc, char ** argv) {
             /* Print out everything */
             for (int i=0;i<max_page;i++) {
                 char * address_loc = mmap_addr + (i * page_size);
-                *address_loc += 1;
+                *address_loc += 1; /* This is done to touch the byte somehow */
                 
                 if (op[0] == 'r') {
                     *address_loc -= 1;
