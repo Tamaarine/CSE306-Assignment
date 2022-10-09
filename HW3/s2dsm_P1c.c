@@ -90,11 +90,11 @@ static void * handshake(void * arg) {
 
 
 static void * fault_handler_thread(void * arg) {
-    long uffd = (long)arg;
-	static struct uffd_msg msg;   /* Data read from userfaultfd */
-	ssize_t nread;
-	struct uffdio_copy uffdio_copy;
-	static char *page = NULL;
+	struct uffd_msg msg;            /* Data read from userfaultfd */
+	struct uffdio_copy uffdio_copy; /* Struct used for resolving page fault */
+	ssize_t nread;                  /* Used for poll() */
+    long uffd = (long)arg;          /* Retrieve uffd from thread arg */
+	static char *page = NULL;       /* Page used to copy */
     
     /* This page will be used to resolve the page fault. handle by kernel for its page fault */
     if (page == NULL) {
@@ -127,11 +127,6 @@ static void * fault_handler_thread(void * arg) {
         
         printf("  [x]  PAGEFAULT\n");
         
-        memset(page, 0, page_size);
-        
-        /* Don't need to initialize the content of page
-         * because they are defaulted to 0
-         */        
         uffdio_copy.src = (unsigned long) page;
 		uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
 			~(page_size - 1);
