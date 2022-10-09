@@ -21,13 +21,12 @@
     exit(EXIT_FAILURE); \
 } while(0)
 
-/* Use to indicate whether this process is the first process or not */
-static int first_process = -1;
-static int accepted_socket; /* Global socket to talk to other process */
-static int page_size;
-static unsigned long len;
-static char * mmap_addr;
-static long uffd;
+static int first_process = -1;      /* Indicate if this process is first/not */
+static int accepted_socket;         /* Global socket to talk to other process */
+static int page_size;               /* How big a page is */
+static unsigned long len;           /* numpage * page_size */
+static char * mmap_addr;            /* global mmap address returned */
+static long uffd;                   /* userfaultfd file descriptor */
 
 /* Struct to be send over socket */
 struct init_info {
