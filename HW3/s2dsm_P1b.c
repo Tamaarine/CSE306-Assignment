@@ -168,9 +168,9 @@ int main(int argc, char ** argv) {
     address_out.sin_port = htons(*send_port);
     
     if(inet_pton(AF_INET, "127.0.0.1", &address_out.sin_addr) <= 0) {
-		perror("inet_pton failed");
-		exit(EXIT_FAILURE);
-	}
+        perror("inet_pton failed");
+        exit(EXIT_FAILURE);
+    }
     
     /* Client connect here to the other port */
     while(connect(connect_socket, (struct sockaddr *)&address_out, sizeof(address_out)) < 0) {
