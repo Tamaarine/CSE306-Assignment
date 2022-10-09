@@ -38,16 +38,16 @@ struct init_info {
 /* This function is used to establish which process is first */
 static void * handshake(void * arg) {
     int * pid_buffer = malloc(sizeof(pid_t)); /* Read other process' pid*/
-    int current_pid = getpid();   /* Get current process' pid */
+    int current_pid = getpid();               /* Get current process' pid */
     
     /* Socket stuff */
-    int sockfd; /* Socket used for listening */
-    struct sockaddr_in address; /* Used for setting up the server accept socket */
-    int opt = 1;
-    int server_port = *((int *)arg);
+    int sockfd;                         /* Socket used for listening */
+    struct sockaddr_in address;         /* Used for setting up the server accept socket */
+    int opt = 1;                        /* Enable boolean option */
+    int server_port = *((int *)arg);    /* Get server port from arg */
     int address_len = sizeof(address);
     
-    int bytes_read;
+    int bytes_read;                     /* Used for read */
     
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         errExit("Socket creation error");
