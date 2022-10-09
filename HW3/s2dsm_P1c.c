@@ -230,6 +230,11 @@ int main(int argc, char ** argv) {
     if (errno)
         errExit("Converting number failed");
     
+    if (listen_port == send_port) {
+        printf("Cannot be listening and sending to same port\n");
+        exit(EXIT_FAILURE);
+    }
+    
     printf("Listening on port %d sending on port %d\n", *listen_port, *send_port);
     
     page_size = sysconf(_SC_PAGE_SIZE);
