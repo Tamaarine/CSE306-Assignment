@@ -27,6 +27,11 @@ static int page_size;               /* How big a page is */
 static unsigned long len;           /* numpage * page_size */
 static char * mmap_addr;            /* global mmap address returned */
 static long uffd;                   /* userfaultfd file descriptor */
+static char * page_status;            /* An array of chars. The size of the array is = num pages */
+
+#define MODIFIED 1
+#define SHARED 2
+#define INVALID 3
 
 /* Struct to be send over socket */
 struct init_info {
@@ -161,6 +166,10 @@ static void * second_process_receive(void * arg) {
     if (mmap_addr == MAP_FAILED)
             errExit("mmap failed");
     
+    page_status = malloc(sizeof(char) * (len / page_size)); /* Allocate a char per page for MSI protocol */
+    for (char * ptr = page_status; ptr < page_status + (len / page_size); ptr++)
+        *ptr = INVALID;
+    
     printf("-----------------------------------------------------\n");
     printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
     
@@ -283,6 +292,10 @@ int main(int argc, char ** argv) {
                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         if (mmap_addr == MAP_FAILED)
             errExit("mmap failed");
+        
+        page_status = malloc(sizeof(char) * pages); /* Allocate a char per page for MSI protocol */
+        for (char * ptr = page_status; ptr < page_status + (len / page_size); ptr++)
+            *ptr = INVALID;
         
         printf("-----------------------------------------------------\n");
         printf("First process\nmmap_address: %p size: %ld\n", mmap_addr, len);
