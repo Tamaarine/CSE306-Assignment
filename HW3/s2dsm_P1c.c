@@ -369,14 +369,13 @@ int main(int argc, char ** argv) {
             /* Print out everything */
             for (int i=0;i<max_page;i++) {
                 char * address_loc = mmap_addr + (i * page_size);
-                *address_loc += 1; /* This is done to touch the byte somehow */
                 
                 if (op[0] == 'r') {
-                    *address_loc -= 1;
-                    printf("  [*]  Page %d:\n%s\n", i, address_loc);
+                    char page_buffer[page_size];
+                    strncpy(page_buffer, address_loc, page_size);
+                    printf("  [*]  Page %d:\n%s\n", i, page_buffer);
                 }
                 else {
-                    *address_loc -= 1;
                     strcpy(address_loc, msg);
                     printf("  [*]  Page %d:\n%s\n", i, address_loc);
                 }
@@ -384,14 +383,13 @@ int main(int argc, char ** argv) {
         }
         else {
             char * address_loc = mmap_addr + (which_page * page_size);
-            *address_loc += 1; /* This is done to touch the byte somehow */
             
             if (op[0] == 'r') {
-                *address_loc -= 1;
-                printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
+                char page_buffer[page_size];
+                strncpy(page_buffer, address_loc, page_size);
+                printf("  [*]  Page %d:\n%s\n", which_page, page_buffer);
             }
             else {
-                *address_loc -= 1;
                 strcpy(address_loc, msg);
                 printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
             }
