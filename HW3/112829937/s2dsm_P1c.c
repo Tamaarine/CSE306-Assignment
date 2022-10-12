@@ -89,19 +89,19 @@ static void * handshake(void * arg) {
 
 
 static void * fault_handler_thread(void * arg) {
-	struct uffd_msg msg;            /* Data read from userfaultfd */
-	struct uffdio_copy uffdio_copy; /* Struct used for resolving page fault */
-	ssize_t nread;                  /* Used for poll() */
+    struct uffd_msg msg;            /* Data read from userfaultfd */
+    struct uffdio_copy uffdio_copy; /* Struct used for resolving page fault */
+    ssize_t nread;                  /* Used for poll() */
     long uffd = (long)arg;          /* Retrieve uffd from thread arg */
-	static char *page = NULL;       /* Page used to copy */
+    static char *page = NULL;       /* Page used to copy */
     
     /* This page will be used to resolve the page fault. handle by kernel for its page fault */
     if (page == NULL) {
-		page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
-			    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		if (page == MAP_FAILED)
-			errExit("mmap");
-	}
+        page = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (page == MAP_FAILED)
+            errExit("mmap");
+    }
     
     for (;;) {
         struct pollfd pollfd;
@@ -114,28 +114,28 @@ static void * fault_handler_thread(void * arg) {
             errExit("Poll failed");
         
         nread = read(uffd, &msg, sizeof(msg));
-		if (nread == 0)
-			errExit("EOF on userfaultfd!");
+        if (nread == 0)
+            errExit("EOF on userfaultfd!");
         else if (nread == -1)
             errExit("Read failed");
         
         if (msg.event != UFFD_EVENT_PAGEFAULT) {
-			fprintf(stderr, "Unexpected event on userfaultfd\n");
-			exit(EXIT_FAILURE);
-		}
+            fprintf(stderr, "Unexpected event on userfaultfd\n");
+            exit(EXIT_FAILURE);
+        }
         
         printf("  [x]  PAGEFAULT\n");
         
         uffdio_copy.src = (unsigned long) page;
-		uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
-			~(page_size - 1);
-		uffdio_copy.len = page_size;
-		uffdio_copy.mode = 0;
-		uffdio_copy.copy = 0;
+        uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
+            ~(page_size - 1);
+        uffdio_copy.len = page_size;
+        uffdio_copy.mode = 0;
+        uffdio_copy.copy = 0;
         
         /* Copy the allocated page to the faulted page */
         if (ioctl(uffd, UFFDIO_COPY, &uffdio_copy) == -1)
-			errExit("ioctl-UFFDIO_COPY");
+            errExit("ioctl-UFFDIO_COPY");
     }
 }
 
@@ -159,7 +159,7 @@ static void * second_process_receive(void * arg) {
     mmap_addr = mmap(info.mmap_addr, len, PROT_READ | PROT_WRITE,
                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (mmap_addr == MAP_FAILED)
-			errExit("mmap failed");
+            errExit("mmap failed");
     
     printf("-----------------------------------------------------\n");
     printf("Second process\nmmap_address: %p size: %ld\n", mmap_addr, len);
@@ -240,7 +240,7 @@ int main(int argc, char ** argv) {
     address_out.sin_port = htons(*send_port);
     
     if(inet_pton(AF_INET, "127.0.0.1", &address_out.sin_addr) <= 0)
-		errExit("inet_pton failed");
+        errExit("inet_pton failed");
     
     /* Client connect here to the other port */
     while(connect(connect_socket, (struct sockaddr *)&address_out, sizeof(address_out)) < 0) {
@@ -369,14 +369,13 @@ int main(int argc, char ** argv) {
             /* Print out everything */
             for (int i=0;i<max_page;i++) {
                 char * address_loc = mmap_addr + (i * page_size);
-                *address_loc += 1; /* This is done to touch the byte somehow */
                 
                 if (op[0] == 'r') {
-                    *address_loc -= 1;
-                    printf("  [*]  Page %d:\n%s\n", i, address_loc);
+                    char page_buffer[page_size];
+                    strncpy(page_buffer, address_loc, page_size);
+                    printf("  [*]  Page %d:\n%s\n", i, page_buffer);
                 }
                 else {
-                    *address_loc -= 1;
                     strcpy(address_loc, msg);
                     printf("  [*]  Page %d:\n%s\n", i, address_loc);
                 }
@@ -384,14 +383,13 @@ int main(int argc, char ** argv) {
         }
         else {
             char * address_loc = mmap_addr + (which_page * page_size);
-            *address_loc += 1; /* This is done to touch the byte somehow */
             
             if (op[0] == 'r') {
-                *address_loc -= 1;
-                printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
+                char page_buffer[page_size];
+                strncpy(page_buffer, address_loc, page_size);
+                printf("  [*]  Page %d:\n%s\n", which_page, page_buffer);
             }
             else {
-                *address_loc -= 1;
                 strcpy(address_loc, msg);
                 printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
             }
