@@ -28,16 +28,30 @@ static int page_size;               /* How big a page is */
 static unsigned long len;           /* numpage * page_size */
 static char * mmap_addr;            /* global mmap address returned */
 static long uffd;                   /* userfaultfd file descriptor */
-static char * page_status;            /* An array of chars. The size of the array is = num pages */
+static char * msi_array;            /* An array of chars. The size of the array is = num pages */
 
 #define MODIFIED 1
 #define SHARED 2
 #define INVALID 3
+#define MODIFIED_S "Modified"
+#define SHARED_S "Shared"
+#define INVALID_S "Invalid"
 
 /* Struct to be send over socket */
 struct init_info {
     char * mmap_addr;
     unsigned long len;
+};
+
+/* Need a struct to basically describe the received message
+ * Easier when writing.
+ * request_type can be
+ * 'F': For requesting to the other side I want that particular page,
+ * which_page is set to indicate which page it is requesting
+ */
+struct msg_request {
+    char request_type;           /* Hold the request type */
+    int which_page;              /* Which page is it requesting */
 };
 
 
@@ -100,6 +114,9 @@ static void * fault_handler_thread(void * arg) {
     ssize_t nread;                  /* Used for poll() */
     long uffd = (long)arg;          /* Retrieve uffd from thread arg */
     static char *page = NULL;       /* Page used to copy */
+    int page_faulted;               /* Used to store which page faulted */
+    int bytes_write;
+    int bytes_read;
     
     /* This page will be used to resolve the page fault. handle by kernel for its page fault */
     if (page == NULL) {
@@ -131,6 +148,36 @@ static void * fault_handler_thread(void * arg) {
         }
         
         printf("  [x]  PAGEFAULT\n");
+        page_faulted = ((char *)msg.arg.pagefault.address - mmap_addr) / page_size;
+        
+        /* Page is invalid, go ask the other process */
+        if (msi_array[page_faulted] == INVALID) {
+            struct msg_request request;
+            char response = 0;
+            request.request_type = 'F';
+            request.which_page = page_faulted;
+            
+            /* Ask the server_thread to handle my request */
+            if ((bytes_write = write(connect_socket, &request, sizeof(request))) < 0)
+                perror("Writing error");
+
+            if ((bytes_read = read(connect_socket, &response, sizeof(response))) < 0)
+                perror("Reading error");
+            
+            if (response == '0') {
+                /* If response is 0 means their page is also invalid */
+                /* Set it to be shared because it is going to be the default page */
+                msi_array[page_faulted] = SHARED;
+            }
+            else if (response == '1') {
+                /* If response is 1 means they are giving back some pages */
+                /* Read the page send by the server thread */
+                if ((bytes_read = read(connect_socket, &page, page_size)) < 0)
+                    perror("Reading error");
+            }
+            
+            /* Then the page content will be copied to resolve the page fault */
+        }
         
         uffdio_copy.src = (unsigned long) page;
         uffdio_copy.dst = (unsigned long) msg.arg.pagefault.address &
@@ -167,8 +214,8 @@ static void * second_process_receive(void * arg) {
     if (mmap_addr == MAP_FAILED)
             errExit("mmap failed");
     
-    page_status = malloc(sizeof(char) * (len / page_size)); /* Allocate a char per page for MSI protocol */
-    for (char * ptr = page_status; ptr < page_status + (len / page_size); ptr++)
+    msi_array = malloc(sizeof(char) * (len / page_size)); /* Allocate a char per page for MSI protocol */
+    for (char * ptr = msi_array; ptr < msi_array + (len / page_size); ptr++)
         *ptr = INVALID;
     
     printf("-----------------------------------------------------\n");
@@ -196,6 +243,52 @@ static void * second_process_receive(void * arg) {
     pthread_create(&thread_id, NULL, fault_handler_thread, (void *)uffd);
     
     /* Carry out the rest of the operation */
+    pthread_exit(NULL);
+}
+
+
+/* A third thread solely for receiving messages */
+static void * server_thread(void * arg) {
+    int bytes_write;
+    int bytes_read;
+    char response;
+    struct msg_request request; /* For storing message */
+    
+    while (1) {
+        if ((bytes_read = read(accepted_socket, &request, sizeof(request))) < 0)
+            perror("Reading error");
+        else if (bytes_read == 0) {
+            printf("Connection resetted\n");
+            exit(EXIT_FAILURE);
+        }
+        
+        printf("request received\n");
+        
+        if (request.request_type == 'F') {
+            if (msi_array[request.which_page] == INVALID) {
+                /* My page is also invalid */
+                response = '0';
+                if ((bytes_write = write(accepted_socket, &response, sizeof(response))) < 0)
+                    perror("Writing error");
+                /* Set it to be shared */
+                msi_array[request.which_page] = SHARED;
+            }
+            else {
+                /* If the requested page is not invalid, just send it back */
+                if ((bytes_write = write(accepted_socket, "1", 1)) < 0)
+                    perror("Writing error");
+                
+                char * address_loc = mmap_addr + (request.which_page * page_size);
+
+                if ((bytes_write = write(accepted_socket, address_loc, page_size)) < 0)
+                    perror("Writing error");
+                
+                /* And mark it as shared because both are the same now */
+                msi_array[request.which_page] = SHARED;
+            }
+        }
+    }
+    
     pthread_exit(NULL);
 }
 
@@ -271,6 +364,7 @@ int main(int argc, char ** argv) {
     if (!first_process) {
         pthread_create(&thread_id, NULL, second_process_receive, NULL);
         pthread_join(thread_id, NULL);
+        pthread_create(&thread_id, NULL, server_thread, NULL);
     }
     else {
         printf("> How many pages would you like to allocate (greater than 0)? ");
@@ -293,8 +387,8 @@ int main(int argc, char ** argv) {
         if (mmap_addr == MAP_FAILED)
             errExit("mmap failed");
         
-        page_status = malloc(sizeof(char) * pages); /* Allocate a char per page for MSI protocol */
-        for (char * ptr = page_status; ptr < page_status + (len / page_size); ptr++)
+        msi_array = malloc(sizeof(char) * pages); /* Allocate a char per page for MSI protocol */
+        for (char * ptr = msi_array; ptr < msi_array + (len / page_size); ptr++)
             *ptr = INVALID;
         
         printf("-----------------------------------------------------\n");
@@ -329,6 +423,7 @@ int main(int argc, char ** argv) {
             errExit("itctl-UFFDIO_REGISTER error");
         
         pthread_create(&fault_thread_id, NULL, fault_handler_thread, (void *)uffd);
+        pthread_create(&thread_id, NULL, server_thread, NULL);
     }
     
     printf("-----------------------------------------------------\n");
