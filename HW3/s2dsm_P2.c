@@ -22,7 +22,8 @@
 } while(0)
 
 static int first_process = -1;      /* Indicate if this process is first/not */
-static int accepted_socket;         /* Global socket to talk to other process */
+static int accepted_socket;         /* Global socket to talk to other client */
+static int connect_socket;          /* Global socket to talk to server */
 static int page_size;               /* How big a page is */
 static unsigned long len;           /* numpage * page_size */
 static char * mmap_addr;            /* global mmap address returned */
@@ -200,7 +201,6 @@ static void * second_process_receive(void * arg) {
 
 
 int main(int argc, char ** argv) {
-    int connect_socket;                 /* Used for connecting to the other process */
     struct sockaddr_in address_out;     /* Address of other process */
     int bytes_write;                    /* Used for write() */
     int pages;                          /* Pages input from user */
