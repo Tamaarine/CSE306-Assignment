@@ -437,15 +437,15 @@ int main(int argc, char ** argv) {
     int max_page = (int)(len / page_size);
     
     while (1) {
-        printf("> Which command should I run? (r:read, w:write): ");
+        printf("> Which command should I run? (r:read, w:write, v:view msi array): ");
         if ((fgets_ret = fgets(op, MAX_SIZE, stdin)) < 0)
             errExit("fgets failed");
         else if (fgets_ret == 0) {
             break;
         }
         op[strcspn(op, "\n")] = 0;
-        if (op[0] != 'r' && op[0] != 'w') {
-            printf("Invalid operation specified (r:read, w:write)\n");
+        if (op[0] != 'r' && op[0] != 'w' && op[0] != 'v') {
+            printf("Invalid operation specified (r:read, w:write, v:view msi array)\n");
             continue;
         }
         else if (op[0] == 'w') {
@@ -456,6 +456,28 @@ int main(int argc, char ** argv) {
                 break;
             }
             msg[strcspn(msg, "\n")] = 0;
+        }
+        else if (op[0] == 'v') {
+            /* Print out all MSI array */
+            for (int i=0;i < max_page;i++) {
+                switch (msi_array[i]) {
+                    case INVALID:
+                    printf("  [*]  Page %d:\n%s\n", i, INVALID_S);
+                    break;
+                    
+                    case SHARED:
+                    printf("  [*]  Page %d:\n%s\n", i, SHARED_S);
+                    break;
+                    
+                    case MODIFIED:
+                    printf("  [*]  Page %d:\n%s\n", i, MODIFIED_S);
+                    break;
+                    
+                    default:
+                    break;
+                }
+            }
+            continue;
         }
         
         printf("> For which page? (0-%d, or -1 for all): ", max_page - 1);
