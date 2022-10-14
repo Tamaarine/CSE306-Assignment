@@ -99,10 +99,7 @@ static void * handshake(void * arg) {
         errExit("Reading error");
     
     printf("Current pid: %d other pid: %d\n", current_pid, *pid_buffer);
-    if (current_pid < *pid_buffer)
-        first_process = 1;
-    else
-        first_process = 0;
+    first_process = current_pid < *pid_buffer ? 1 : 0;
     
     pthread_exit(NULL);    
 }
