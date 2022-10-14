@@ -303,7 +303,6 @@ static void * server_thread(void * arg) {
 int main(int argc, char ** argv) {
     struct sockaddr_in address_out;     /* Address of other process */
     int bytes_write;                    /* Used for write() */
-    // int bytes_read;                     /* Used for read() */
     int pages;                          /* Pages input from user */
     char pages_raw[50];                 /* Buffer for storing fgets for # pages */
     char * fgets_ret;                   /* fgets_ret */
@@ -540,6 +539,5 @@ int main(int argc, char ** argv) {
             }
         }
     }
-    // pthread_join(thread_id, NULL);
     return 0;
 }
