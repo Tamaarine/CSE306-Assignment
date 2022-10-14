@@ -43,13 +43,9 @@ struct init_info {
     unsigned long len;
 };
 
-/* Need a struct to basically describe the received message
- * Easier when writing.
- * request_type can be
- * 'F': For requesting to the other side I want that particular page,
- * which_page is set to indicate which page it is requesting
- * 
- * 'I': For invalidating the specified page
+/*
+ * 'F': For fetching specified page
+ * 'I': For invalidating specified page
  */
 struct msg_request {
     char request_type;           /* Hold the request type */
