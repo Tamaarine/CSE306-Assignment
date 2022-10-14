@@ -255,7 +255,6 @@ static void * second_process_receive(void * arg) {
 static void * server_thread(void * arg) {
     int bytes_write;
     int bytes_read;
-    char response;
     struct msg_request request; /* For storing message */
     
     while (1) {
@@ -269,8 +268,7 @@ static void * server_thread(void * arg) {
         if (request.request_type == 'F') {
             if (msi_array[request.which_page] == INVALID) {
                 /* My page is also invalid */
-                response = '0';
-                if ((bytes_write = write(accepted_socket, &response, sizeof(response))) < 0)
+                if ((bytes_write = write(accepted_socket, "0", 1)) < 0)
                     errExit("Writing error");
                 /* Set it to be shared */
                 msi_array[request.which_page] = SHARED;
