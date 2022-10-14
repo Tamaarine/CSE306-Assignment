@@ -149,6 +149,8 @@ static void * fault_handler_thread(void * arg) {
         printf("  [x]  PAGEFAULT\n");
         page_faulted = ((char *)msg.arg.pagefault.address - mmap_addr) / page_size;
         
+        memset(page, 0, page_size); /* Clear out the page to 0 */
+        
         /* Page is invalid, go ask the other process */
         if (msi_array[page_faulted] == INVALID) {
             struct msg_request request;
@@ -167,7 +169,6 @@ static void * fault_handler_thread(void * arg) {
                 /* If response is 0 means their page is also invalid */
                 /* Set it to be shared because it is going to be the default page */
                 msi_array[page_faulted] = SHARED;
-                memset(page, 0, page_size); /* Clear out the page to 0 */
             }
             else if (response == '1') {
                 /* If response is 1 means they are giving back some pages */
