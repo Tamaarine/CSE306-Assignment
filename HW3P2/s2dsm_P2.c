@@ -57,6 +57,18 @@ struct msg_request {
 };
 
 
+/* Used to abstract away the request sending */
+static void sent_request(char request_type, int which_page) {
+    int bytes_write;
+    struct msg_request request;
+    request.request_type = request_type;
+    request.which_page = which_page;
+    
+    if ((bytes_write = write(connect_socket, &request, sizeof(request))) < 0)
+        errExit("Writing error");
+}
+
+
 /* This function is used to establish which process is first */
 static void * handshake(void * arg) {
     int * pid_buffer = malloc(sizeof(pid_t)); /* Read other process' pid*/
@@ -114,7 +126,6 @@ static void * fault_handler_thread(void * arg) {
     long uffd = (long)arg;          /* Retrieve uffd from thread arg */
     static char *page = NULL;       /* Page used to copy */
     int page_faulted;               /* Used to store which page faulted */
-    int bytes_write;
     int bytes_read;
     
     /* This page will be used to resolve the page fault. handle by kernel for its page fault */
@@ -153,14 +164,10 @@ static void * fault_handler_thread(void * arg) {
         
         /* Page is invalid, go ask the other process */
         if (msi_array[page_faulted] == INVALID) {
-            struct msg_request request;
-            char response = 0;
-            request.request_type = 'F';
-            request.which_page = page_faulted;
+            char response;
             
-            /* Ask the server_thread to handle my request */
-            if ((bytes_write = write(connect_socket, &request, sizeof(request))) < 0)
-                errExit("Writing error");
+            /* Fetch request */
+            sent_request('F', page_faulted);
 
             if ((bytes_read = read(connect_socket, &response, sizeof(response))) < 0)
                 errExit("Reading error");
@@ -518,14 +525,7 @@ int main(int argc, char ** argv) {
                     msi_array[i] = MODIFIED;
                     printf("  [*]  Page %d:\n%s\n", i, address_loc);
                     
-                    /* Sent invalidation msg */
-                    struct msg_request request;
-                    request.request_type = 'I';
-                    request.which_page = i;
-                    
-                    /* Tell the other side to invalidate the page */
-                    if ((bytes_write = write(connect_socket, &request, sizeof(request))) < 0)
-                        errExit("Writing error");
+                    sent_request('I', i);
                 }
             }
         }
@@ -542,14 +542,7 @@ int main(int argc, char ** argv) {
                 msi_array[which_page] = MODIFIED;
                 printf("  [*]  Page %d:\n%s\n", which_page, address_loc);
                 
-                /* Sent invalidation msg */
-                struct msg_request request;
-                request.request_type = 'I';
-                request.which_page = which_page;
-                
-                /* Tell the other side to invalidate the page */
-                if ((bytes_write = write(connect_socket, &request, sizeof(request))) < 0)
-                    errExit("Writing error");
+                sent_request('I', which_page);
             }
         }
     }
