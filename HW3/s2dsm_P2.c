@@ -156,10 +156,10 @@ static void * fault_handler_thread(void * arg) {
             
             /* Ask the server_thread to handle my request */
             if ((bytes_write = write(connect_socket, &request, sizeof(request))) < 0)
-                perror("Writing error");
+                errExit("Writing error");
 
             if ((bytes_read = read(connect_socket, &response, sizeof(response))) < 0)
-                perror("Reading error");
+                errExit("Reading error");
             
             if (response == '0') {
                 /* If response is 0 means their page is also invalid */
@@ -170,7 +170,7 @@ static void * fault_handler_thread(void * arg) {
                 /* If response is 1 means they are giving back some pages */
                 /* Read the page send by the server thread */
                 if ((bytes_read = read(connect_socket, &page, page_size)) < 0)
-                    perror("Reading error");
+                    errExit("Reading error");
             }
             
             /* Then the page content will be copied to resolve the page fault */
@@ -253,7 +253,7 @@ static void * server_thread(void * arg) {
     
     while (1) {
         if ((bytes_read = read(accepted_socket, &request, sizeof(request))) < 0)
-            perror("Reading error");
+            errExit("Reading error");
         else if (bytes_read == 0) {
             printf("Connection resetted\n");
             exit(EXIT_FAILURE);
@@ -266,19 +266,19 @@ static void * server_thread(void * arg) {
                 /* My page is also invalid */
                 response = '0';
                 if ((bytes_write = write(accepted_socket, &response, sizeof(response))) < 0)
-                    perror("Writing error");
+                    errExit("Writing error");
                 /* Set it to be shared */
                 msi_array[request.which_page] = SHARED;
             }
             else {
                 /* If the requested page is not invalid, just send it back */
                 if ((bytes_write = write(accepted_socket, "1", 1)) < 0)
-                    perror("Writing error");
+                    errExit("Writing error");
                 
                 char * address_loc = mmap_addr + (request.which_page * page_size);
 
                 if ((bytes_write = write(accepted_socket, address_loc, page_size)) < 0)
-                    perror("Writing error");
+                    errExit("Writing error");
                 
                 /* And mark it as shared because both are the same now */
                 msi_array[request.which_page] = SHARED;
