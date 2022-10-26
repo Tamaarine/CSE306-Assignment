@@ -27,7 +27,6 @@ NOKPROBE_SYMBOL(ret_pick_next_fair);    /* Don't probe this function */
 static struct kretprobe my_kretprobe = {
     .handler = ret_pick_next_fair,          /* The callback used when the probing function is returned */
     .entry_handler = entry_pick_next_fair,  /* The callback used when the probing function is entered */
-    .data_size = ,     /* The size of the struct I'm keeping track of */
     .maxactive = 8     /* How many concurrent instances of probes. At least 8 to not miss any */
 };
 
