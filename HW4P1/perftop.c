@@ -7,12 +7,23 @@
 #define DRIVER_DESC   "Homework 4 - CPU Profiler"
 
 static char func_name[NAME_MAX] = "pick_next_task_fair";    /* String that host the function to probe */
+static int pre_count;  /* Counting entry */
+static int post_count; /* Counting return */
+
+DEFINE_SPINLOCK(pre_count_lock);
+DEFINE_SPINLOCK(post_count_lock);
 
 /*
  * Callback for when func_name is called
  */
 static int entry_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
+    if (!current->mm)
+        return 1;   /* Skip kernel threads*/
     
+    spin_lock(&pre_count_lock);
+    pre_count++;
+    spin_unlock(&pre_count_lock);
+    return 0;
 }
 NOKPROBE_SYMBOL(entry_pick_next_fair);    /* Don't probe this function */
 
@@ -20,7 +31,10 @@ NOKPROBE_SYMBOL(entry_pick_next_fair);    /* Don't probe this function */
  * Callback for when func_name is returned
  */
 static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
-    
+    spin_lock(&post_count_lock);
+    post_count++;
+    spin_unlock(&post_count_lock);
+    return 0;
 }
 NOKPROBE_SYMBOL(ret_pick_next_fair);    /* Don't probe this function */
 
