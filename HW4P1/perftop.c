@@ -1,9 +1,35 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/kprobes.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "Homework 4 - CPU Profiler"
+
+static char func_name[NAME_MAX] = "pick_next_task_fair";    /* String that host the function to probe */
+
+/*
+ * Callback for when func_name is called
+ */
+static int entry_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
+    
+}
+NOKPROBE_SYMBOL(entry_pick_next_fair);    /* Don't probe this function */
+
+/*
+ * Callback for when func_name is returned
+ */
+static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
+    
+}
+NOKPROBE_SYMBOL(ret_pick_next_fair);    /* Don't probe this function */
+
+static struct kretprobe my_kretprobe = {
+    .handler = ret_pick_next_fair,          /* The callback used when the probing function is returned */
+    .entry_handler = entry_pick_next_fair,  /* The callback used when the probing function is entered */
+    .data_size = ,     /* The size of the struct I'm keeping track of */
+    .maxactive = 8     /* How many concurrent instances of probes. At least 8 to not miss any */
+};
 
 /* Function that actually writes to the proc file  */
 static int perftop_proc_show(struct seq_file * m, void * v) {
