@@ -12,7 +12,8 @@ static int perftop_proc_show(struct seq_file * m, void * v) {
     return 0;
 }
 
-/* Open callback, gets called when proc file is opened.
+/*
+ * Open callback, gets called when proc file is opened.
  * Uses single_open to output all the data at once.
  */
 static int perftop_proc_open(struct inode * inode, struct file * file) {
