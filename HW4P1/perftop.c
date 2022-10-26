@@ -7,8 +7,8 @@
 #define DRIVER_DESC   "Homework 4 - CPU Profiler"
 
 static char func_name[NAME_MAX] = "pick_next_task_fair";    /* String that host the function to probe */
-static int pre_count;  /* Counting entry */
-static int post_count; /* Counting return */
+static int pre_count;   /* Counting entry */
+static int post_count;  /* Counting return */
 
 DEFINE_SPINLOCK(pre_count_lock);
 DEFINE_SPINLOCK(post_count_lock);
