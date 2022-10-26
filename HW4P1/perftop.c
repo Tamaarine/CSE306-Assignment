@@ -33,6 +33,8 @@ static int entry_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs *
      * %rdi contain struct rq * rq
      * %rsi contain struct task_struct * prev
      * %rdx contain struct rq_flags * rf
+     * https://wiki.osdev.org/System_V_ABI
+     * https://aaronbloomfield.github.io/pdr/book/x86-64bit-ccc-chapter.pdf
      */
     data = (struct my_data *)ri->data;  /* Get the data from instance, typecast to my_data */
     data->prev = regs->si;              /* %rsi is the second parameter that contain prev */
