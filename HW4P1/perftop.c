@@ -5,21 +5,37 @@
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "Homework 4 - CPU Profiler"
+#define UNSIGN_LONG_NULL (unsigned long)NULL
 
 static char func_name[NAME_MAX] = "pick_next_task_fair";    /* String that host the function to probe */
 static int pre_count;   /* Counting entry */
 static int post_count;  /* Counting return */
+static int context_switch_counter;  /* Counting number of context switches*/
 
 DEFINE_SPINLOCK(pre_count_lock);
 DEFINE_SPINLOCK(post_count_lock);
+DEFINE_SPINLOCK(context_switch_lock);
+
+/* Data for storing prev to be carried into ret_handler */
+struct my_data {
+    unsigned long prev;
+};
 
 /*
  * Callback for when func_name is called
  */
 static int entry_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
+    struct my_data * data;
+    
     if (!current->mm)
         return 1;   /* Skip kernel threads*/
-    
+    /*
+     * %rdi contain struct rq * rq
+     * %rsi contain struct task_struct * prev
+     * %rdx contain struct rq_flags * rf
+     */
+    data = (struct my_data *)ri->data;  /* Get the data from instance, typecast to my_data */
+    data->prev = regs->si;              /* %rsi is the second parameter that contain prev */
     spin_lock(&pre_count_lock);
     pre_count++;
     spin_unlock(&pre_count_lock);
@@ -31,6 +47,23 @@ NOKPROBE_SYMBOL(entry_pick_next_fair);    /* Don't probe this function */
  * Callback for when func_name is returned
  */
 static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
+    struct my_data * data;
+    unsigned long next;
+    next = regs_return_value(regs);     /* Get return value of func_name. In our case the next task_struct **/
+
+    data = (struct my_data *)ri->data;  /* Retriveing my_data from instance */
+    if (data->prev != next && next != UNSIGN_LONG_NULL && data->prev != UNSIGN_LONG_NULL) {
+        /*
+         * Only increment if next != null, prev != null, prev != next.
+         * No race condition will occur, because next, prev are all unique
+         * per instance. If two threads needs to increment context_switch
+         * the spin_lock will force the others to wait. If it doesn't need to
+         * increment context_switch then no need to lock it.
+         */
+        spin_lock(&context_switch_lock);
+        context_switch_counter++;
+        spin_unlock(&context_switch_lock);
+    }
     spin_lock(&post_count_lock);
     post_count++;
     spin_unlock(&post_count_lock);
@@ -46,7 +79,8 @@ static struct kretprobe my_kretprobe = {
 
 /* Function that actually writes to the proc file  */
 static int perftop_proc_show(struct seq_file * m, void * v) {
-    seq_printf(m, "Pre count: %d Post count: %d\n", pre_count, post_count);
+    seq_printf(m, "Pre count: %d Post count: %d Context switch: %d\n",
+            pre_count, post_count, context_switch_counter);
     
     return 0;
 }
