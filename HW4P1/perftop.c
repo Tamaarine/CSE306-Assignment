@@ -46,7 +46,7 @@ static struct kretprobe my_kretprobe = {
 
 /* Function that actually writes to the proc file  */
 static int perftop_proc_show(struct seq_file * m, void * v) {
-    seq_printf(m, "Hello World\n");
+    seq_printf(m, "Pre count: %d Post count: %d\n", pre_count, post_count);
     
     return 0;
 }
