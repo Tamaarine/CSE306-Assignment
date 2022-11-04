@@ -67,6 +67,7 @@ NOKPROBE_SYMBOL(entry_pick_next_fair);    /* Don't probe this function */
 static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
     struct my_data * data;
     unsigned long next;
+    struct my_hash_table_struct to_add; /* temp var used for adding to hashtable */
     next = regs_return_value(regs);     /* Get return value of func_name. In our case the next task_struct **/
 
     data = (struct my_data *)ri->data;  /* Retriveing my_data from instance */
@@ -81,6 +82,13 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
         spin_lock(&context_switch_lock);
         context_switch_counter++;
         spin_unlock(&context_switch_lock);
+        
+        to_add.tsc = rdtsc();
+        /* Store the timestamp counter into to_add */
+        
+        spin_lock(&hash_table_lock);
+        /* Add code later after piazza post response */
+        spin_unlock(&hash_table_lock);
     }
     spin_lock(&post_count_lock);
     post_count++;
