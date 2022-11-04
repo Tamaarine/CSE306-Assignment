@@ -14,14 +14,27 @@ static char func_name[NAME_MAX] = "pick_next_task_fair";    /* String that host 
 static int pre_count;   /* Counting entry */
 static int post_count;  /* Counting return */
 static int context_switch_counter;  /* Counting number of context switches*/
+static struct hash_table_wrapper * ht_wrapper;  /* Used for storing the global hashtable */
 
 DEFINE_SPINLOCK(pre_count_lock);
 DEFINE_SPINLOCK(post_count_lock);
 DEFINE_SPINLOCK(context_switch_lock);
+DEFINE_SPINLOCK(hash_table_lock);
 
 /* Data for storing prev to be carried into ret_handler */
 struct my_data {
     unsigned long prev;
+};
+
+/* Each individual hash table entries */
+struct my_hash_table_struct {
+    unsigned long long tsc;         /* Stores the timestamp counter */
+    struct hlist_node hash_list;    /* Kernel embedded linked list node for bucket */
+};
+
+/* Dynamically allocate a hash table */
+struct hash_table_wrapper {
+    DECLARE_HASHTABLE(myhashtable, 10);
 };
 
 /*
@@ -109,6 +122,8 @@ static const struct proc_ops perftop_proc_ops = {
 
 static int __init perftop_init(void) {
     int ret;
+    /* Initialize the global hashtable */
+    ht_wrapper = kmalloc(sizeof(struct hash_table_wrapper), GFP_KERNEL);
     
     printk(KERN_INFO "My module entered\n");
     
