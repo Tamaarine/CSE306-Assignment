@@ -2,6 +2,9 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/kprobes.h>
+#include <linux/hashtable.h>
+#include <linux/slab.h>
+#include <asm/msr.h>
 
 #define DRIVER_AUTHOR "Ricky Lu ricky.lu@stonybrook.edu"
 #define DRIVER_DESC   "Homework 4 - CPU Profiler"
