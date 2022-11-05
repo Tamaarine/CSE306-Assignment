@@ -198,6 +198,28 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
         }
         position->node = &node_to_add->node;     /* Update hash entry with new node */
         my_rb_insert(&mytree, node_to_add);     /* Add to rb-tree */
+        
+        /* Work for next */
+        pid = ((struct task_struct *)(next))->pid;
+        
+        hash_for_each_possible(ht_wrapper->myhashtable, position, hash_list, pid) {
+            if (position->pid == pid)
+                break; /* Break if entry found */
+        }
+        
+        if (!position) {
+            /* Next doesn't have entry yet either */
+            hash_to_add = kmalloc(sizeof(struct my_hash_table_struct), GFP_ATOMIC);
+            hash_to_add->node = NULL;
+            hash_to_add->tsc = current_tsc;
+            hash_to_add->pid = pid;
+            
+            hash_add(ht_wrapper->myhashtable, &hash_to_add->hash_list, pid);
+        }
+        else {
+            /* If it has then just update tsc with current_tsc */
+            position->tsc = current_tsc;
+        }
         spin_unlock(&hash_table_lock);
     }
     spin_lock(&post_count_lock);
