@@ -38,6 +38,8 @@ struct my_data {
  */
 struct my_hash_table_struct {
     unsigned long long tsc;         /* Stores the timestamp counter */
+    pid_t pid;                      /* Keep the pid of the entry */
+    struct rb_node * node;          /* Reference to the rb_node for the task_struct */
     struct hlist_node hash_list;    /* Kernel embedded linked list node for bucket */
 };
 
@@ -54,6 +56,7 @@ struct hash_table_wrapper {
  */
 struct my_rb_tree_struct {
     unsigned long long ttsc;        /* Stores the total accumlative tsc time */
+    pid_t pid;                      /* Stores the pid associated with the top-10 scheduled task */
     struct rb_node node;            /* Embedded rb_node struct */
 };
 
