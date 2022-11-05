@@ -3,6 +3,7 @@
 #include <linux/seq_file.h>
 #include <linux/kprobes.h>
 #include <linux/hashtable.h>
+#include <linux/rbtree.h>
 #include <linux/slab.h>
 #include <asm/msr.h>
 
@@ -15,6 +16,7 @@ static int pre_count;   /* Counting entry */
 static int post_count;  /* Counting return */
 static int context_switch_counter;  /* Counting number of context switches*/
 static struct hash_table_wrapper * ht_wrapper;  /* Used for storing the global hashtable */
+static struct rb_root mytree = RB_ROOT;         /* Used for storing the task ordered by total tsc */
 
 DEFINE_SPINLOCK(pre_count_lock);
 DEFINE_SPINLOCK(post_count_lock);
@@ -36,6 +38,41 @@ struct my_hash_table_struct {
 struct hash_table_wrapper {
     DECLARE_HASHTABLE(myhashtable, 10);
 };
+
+/* mystruct for red-black tree */
+struct my_rb_tree_struct {
+    unsigned long long ttsc;        /* Stores the total accumlative tsc time */
+    struct rb_node node;            /* Embedded rb_node struct */
+};
+
+/* Insertion function for rb-tree */
+static void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) {
+    /* Two level of indirection to prevent null deref */
+    struct rb_node ** link = &root->rb_node;
+    struct rb_node * parent = NULL; /* Points to last node visited*/
+    int value = new->ttsc;          /* The value we are inserting */
+    struct my_rb_tree_struct * current_struct;  /* Used to store entry struct */
+    
+    /* Go down the tree until insertion place is found, link == NULL basically */
+    while (*link) {
+        parent = *link;     /* Put the current pointer pointed by link into parent */
+        
+        /* Get encapsulating struct around parent by calling rb_entry */
+        current_struct = rb_entry(parent, struct my_rb_tree_struct, node);
+        
+        /* Belongs in the left sub-tree */
+        if (current_struct->ttsc > value)
+            link = &(*link)->rb_left;
+        else
+            link = &(*link)->rb_right;
+    }
+    
+    /* Insert the node at parent */
+    rb_link_node(&new->node, parent, link);
+    
+    /* Rebalance if needed */
+    rb_insert_color(&new->node, root);
+}
 
 /*
  * Callback for when func_name is called
