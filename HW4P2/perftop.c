@@ -119,7 +119,18 @@ NOKPROBE_SYMBOL(entry_pick_next_fair);    /* Don't probe this function */
 static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * regs) {
     struct my_data * data;
     unsigned long next;
-    struct my_hash_table_struct to_add; /* temp var used for adding to hashtable */
+    
+    struct my_hash_table_struct * hash_to_add;   /* temp var used for adding to hashtable */
+    struct my_hash_table_struct * position; /* Used for bucket iteration */
+    pid_t pid;                              /* Storing prev|next's PID */
+    
+    struct my_rb_tree_struct * node_to_add;      /* temp var for adding to rb-tree */
+    struct my_rb_tree_struct * my_struct_entry;  /* Holds the unwrapped struct */
+    
+    unsigned long long start_tsc;   /* Obtained from hash table. The last tsc timestamp */
+    unsigned long long current_tsc; /* rdtsc() */
+    unsigned long long elapsed;     /* start_tsc - current_tsc */
+    
     next = regs_return_value(regs);     /* Get return value of func_name. In our case the next task_struct **/
 
     data = (struct my_data *)ri->data;  /* Retriveing my_data from instance */
@@ -135,11 +146,59 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
         context_switch_counter++;
         spin_unlock(&context_switch_lock);
         
-        to_add.tsc = rdtsc();
-        /* Store the timestamp counter into to_add */
+        /* Work for prev */
+        pid = ((struct task_struct *)data->prev)->pid;
+        current_tsc = rdtsc();
         
         spin_lock(&hash_table_lock);
-        /* Add code later after piazza post response */
+        hash_for_each_possible(ht_wrapper->myhashtable, position, hash_list, pid) {
+            if (position->pid == pid) {
+                /* pid match, we found the entry, get the start_tsc from this entry */
+                start_tsc = position->tsc;
+                break;
+            }
+        }
+        
+        /*
+         * position is null = didn't find entry in hash table.
+         * We will initialize one for prev. And add in a new
+         * rb_node into the tree.
+         */
+        if (!position) {
+            hash_to_add = kmalloc(sizeof(struct my_hash_table_struct), GFP_ATOMIC);
+            hash_to_add->pid = pid;
+            hash_to_add->node = NULL;
+            hash_to_add->tsc = current_tsc;
+            start_tsc = current_tsc;
+            
+            hash_add(ht_wrapper->myhashtable, &hash_to_add->hash_list, pid);
+            position = hash_to_add;
+        }
+        
+        elapsed = current_tsc - start_tsc;
+        printk(KERN_INFO "Current is %lld\n", current_tsc);
+        node_to_add = kmalloc(sizeof(struct my_rb_tree_struct), GFP_ATOMIC);
+        node_to_add->pid = pid;     /* Can be updated outside */
+        
+        /*
+         * If the hash entry already have a old node, must add to it by retrieving
+         * the old entry ttsc. Then erase the old entry & free it.
+         *
+         * If is a brand new hash entry, just set time to be elpased
+         * for node_to_add struct.
+         */
+        if (position->node) {
+            my_struct_entry = rb_entry(position->node, struct my_rb_tree_struct, node);
+            node_to_add->ttsc = my_struct_entry->ttsc + elapsed;
+            
+            rb_erase(position->node, &mytree);
+            kfree(my_struct_entry);
+        }
+        else {
+            node_to_add->ttsc = elapsed;
+        }
+        position->node = &node_to_add->node;     /* Update hash entry with new node */
+        my_rb_insert(&mytree, node_to_add);     /* Add to rb-tree */
         spin_unlock(&hash_table_lock);
     }
     spin_lock(&post_count_lock);
