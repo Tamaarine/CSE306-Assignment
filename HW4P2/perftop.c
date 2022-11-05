@@ -22,6 +22,7 @@ DEFINE_SPINLOCK(pre_count_lock);
 DEFINE_SPINLOCK(post_count_lock);
 DEFINE_SPINLOCK(context_switch_lock);
 DEFINE_SPINLOCK(hash_table_lock);
+DEFINE_SPINLOCK(rb_tree_lock);
 
 /* Data for storing prev to be carried into ret_handler */
 struct my_data {
