@@ -29,7 +29,13 @@ struct my_data {
     unsigned long prev;
 };
 
-/* Each individual hash table entries */
+/* Each individual hash table entries.
+ * For this homework, the key for the hash table is the PID of
+ * each task_struct. The value would be this entire struct.
+ * I'm going to additionally embed the pid in the entry so
+ * when we iterate over it, we can further verify that this
+ * entry indeed for that task_struct in case of collision.
+ */
 struct my_hash_table_struct {
     unsigned long long tsc;         /* Stores the timestamp counter */
     struct hlist_node hash_list;    /* Kernel embedded linked list node for bucket */
@@ -40,7 +46,12 @@ struct hash_table_wrapper {
     DECLARE_HASHTABLE(myhashtable, 10);
 };
 
-/* mystruct for red-black tree */
+/* mystruct for red-black tree.
+ * The rb-tree in this homework will be used to keep track
+ * of the Total accumulated time that the task_struct spend in CPU.
+ * The TAT is calculated by using the elapsed time (time in hash table - rdtsc())
+ * and added to the initial time, which starts at 0.
+ */
 struct my_rb_tree_struct {
     unsigned long long ttsc;        /* Stores the total accumlative tsc time */
     struct rb_node node;            /* Embedded rb_node struct */
