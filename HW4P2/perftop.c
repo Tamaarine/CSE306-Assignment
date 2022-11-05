@@ -176,7 +176,6 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
         }
         
         elapsed = current_tsc - start_tsc;
-        printk(KERN_INFO "Current is %lld\n", current_tsc);
         node_to_add = kmalloc(sizeof(struct my_rb_tree_struct), GFP_ATOMIC);
         node_to_add->pid = pid;     /* Can be updated outside */
         
