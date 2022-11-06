@@ -65,7 +65,7 @@ static void my_rb_insert(struct rb_root * root, struct my_rb_tree_struct * new) 
     /* Two level of indirection to prevent null deref */
     struct rb_node ** link = &root->rb_node;
     struct rb_node * parent = NULL; /* Points to last node visited*/
-    int value = new->ttsc;          /* The value we are inserting */
+    unsigned long long value = new->ttsc;       /* The value we are inserting */
     struct my_rb_tree_struct * current_struct;  /* Used to store entry struct */
     
     /* Go down the tree until insertion place is found, link == NULL basically */
