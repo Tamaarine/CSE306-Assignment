@@ -233,9 +233,24 @@ static struct kretprobe my_kretprobe = {
 
 /* Function that actually writes to the proc file  */
 static int perftop_proc_show(struct seq_file * m, void * v) {
+    struct my_rb_tree_struct * my_struct_entry;
+    struct rb_node * position;
+    int i = 0;      /* Used to iterate 10 times */
+    
     seq_printf(m, "Pre count: %d Post count: %d Context switch: %d\n",
             pre_count, post_count, context_switch_counter);
     
+    seq_printf(m, "Top 10 task: \n");
+    spin_lock(&post_timing_lock);
+    position = rb_last(&mytree);
+    while (i < 10 && position) {
+        my_struct_entry = rb_entry(position, struct my_rb_tree_struct, node);
+        seq_printf(m, "PID: %*d Total tsc: %lld\n",
+            5, my_struct_entry->pid, my_struct_entry->ttsc);
+        position = rb_prev(position);
+        i += 1;
+    }
+    spin_unlock(&post_timing_lock);
     return 0;
 }
 
