@@ -296,6 +296,11 @@ static int __init perftop_init(void) {
 }
 
 static void __exit perftop_exit(void) {
+    struct my_hash_table_struct * position;
+    struct rb_node * node_position, * temp;
+    struct my_rb_tree_struct * node_entry;
+    int bkt;
+    
     printk(KERN_INFO "My module exited\n");
     
     /* Null to signal /proc dir */
@@ -306,6 +311,21 @@ static void __exit perftop_exit(void) {
     
     printk("Missed probing %d instances of %s\n",
             my_kretprobe.nmissed, my_kretprobe.kp.symbol_name);
+    
+    hash_for_each(ht_wrapper->myhashtable, bkt, position, hash_list) {
+        hash_del(&position->hash_list);
+        kfree(position);
+    }
+    kfree(ht_wrapper);
+    
+    node_position = rb_first(&mytree);
+    while (node_position) {
+        node_entry = rb_entry(node_position, struct my_rb_tree_struct, node);
+        temp = rb_next(node_position);
+        rb_erase(node_position, &mytree);
+        kfree(node_entry);
+        node_position = temp;
+    }
 }
 
 module_init(perftop_init);
