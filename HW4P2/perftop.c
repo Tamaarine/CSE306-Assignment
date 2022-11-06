@@ -150,7 +150,6 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
         hash_for_each_possible(ht_wrapper->myhashtable, position, hash_list, pid) {
             if (position->pid == pid) {
                 /* pid match, we found the entry, get the start_tsc from this entry */
-                start_tsc = position->tsc;
                 break;
             }
         }
@@ -165,12 +164,12 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
             hash_to_add->pid = pid;
             hash_to_add->node = NULL;
             hash_to_add->tsc = current_tsc;
-            start_tsc = current_tsc;
             
             hash_add(ht_wrapper->myhashtable, &hash_to_add->hash_list, pid);
             position = hash_to_add;
         }
         
+        start_tsc = position->tsc;
         elapsed = current_tsc - start_tsc;
         node_to_add = kmalloc(sizeof(struct my_rb_tree_struct), GFP_ATOMIC);
         node_to_add->pid = pid;     /* Can be updated outside */
@@ -179,21 +178,21 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
          * If the hash entry already have a old node, must add to it by retrieving
          * the old entry ttsc. Then erase the old entry & free it.
          *
-         * If is a brand new hash entry, just set time to be elpased
+         * If is a brand new hash entry, just set time to be 0
          * for node_to_add struct.
          */
         if (position->node) {
             my_struct_entry = rb_entry(position->node, struct my_rb_tree_struct, node);
             node_to_add->ttsc = my_struct_entry->ttsc + elapsed;
             
-            rb_erase(position->node, &mytree);
+            rb_erase(&my_struct_entry->node, &mytree);
             kfree(my_struct_entry);
         }
         else {
-            node_to_add->ttsc = elapsed;
+            node_to_add->ttsc = 0;
         }
         position->node = &node_to_add->node;     /* Update hash entry with new node */
-        my_rb_insert(&mytree, node_to_add);     /* Add to rb-tree */
+        my_rb_insert(&mytree, node_to_add);      /* Add to rb-tree */
         
         /* Work for next */
         pid = ((struct task_struct *)(next))->pid;
