@@ -20,9 +20,7 @@ static struct rb_root mytree = RB_ROOT;         /* Used for storing the task ord
 
 DEFINE_SPINLOCK(pre_count_lock);
 DEFINE_SPINLOCK(post_count_lock);
-DEFINE_SPINLOCK(context_switch_lock);
-DEFINE_SPINLOCK(hash_table_lock);
-DEFINE_SPINLOCK(rb_tree_lock);
+DEFINE_SPINLOCK(post_timing_lock);      /* One lock to incorporate all of prev != next */
 
 /* Data for storing prev to be carried into ret_handler */
 struct my_data {
@@ -142,15 +140,13 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
          * the spin_lock will force the others to wait. If it doesn't need to
          * increment context_switch then no need to lock it.
          */
-        spin_lock(&context_switch_lock);
+        spin_lock(&post_timing_lock);
         context_switch_counter++;
-        spin_unlock(&context_switch_lock);
         
         /* Work for prev */
         pid = ((struct task_struct *)data->prev)->pid;
         current_tsc = rdtsc();
         
-        spin_lock(&hash_table_lock);
         hash_for_each_possible(ht_wrapper->myhashtable, position, hash_list, pid) {
             if (position->pid == pid) {
                 /* pid match, we found the entry, get the start_tsc from this entry */
@@ -220,7 +216,7 @@ static int ret_pick_next_fair(struct kretprobe_instance * ri, struct pt_regs * r
             /* If it has then just update tsc with current_tsc */
             position->tsc = current_tsc;
         }
-        spin_unlock(&hash_table_lock);
+        spin_unlock(&post_timing_lock);
     }
     spin_lock(&post_count_lock);
     post_count++;
