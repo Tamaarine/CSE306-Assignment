@@ -6,6 +6,28 @@
 #define DRIVER_DESC   "Homework 5 - Super Simple File System"
 #define LFS_MAGIC 0x19920342 /* # Used to identify the filesystem */
 
+/*
+ * Function for defining a inode whenever a file/directory is created.
+ * The mode parameter tells if this file is a directory or a file,
+ * it also contains permissions.
+*/
+static struct inode * s2fs_make_inode(struct super_block * sb, int mode) {
+    struct inode * ret = new_inode(sb);
+    kuid_t temp_ku;
+    kgid_t temp_kg;
+    
+    if (ret) {
+        temp_ku.val = 0;
+        temp_kg.val = 0;
+        ret->i_uid = temp_ku;
+        ret->i_gid = temp_kg;
+        ret->i_mode = mode;
+        ret->i_blocks = 0;
+        ret->i_atime = ret->i_mtime = ret->i_ctime = current_time(ret);
+    }
+    return ret;
+}
+
 /* Superblock's operations */
 static struct super_operations s2fs_s_ops = {
     .statfs = simple_statfs,
@@ -29,7 +51,21 @@ static int s2fs_fill_super(struct super_block * sb, void * data, int silent) {
     sb->s_magic = LFS_MAGIC;
     sb->s_op = &s2fs_s_ops;
     
-    printk(KERN_INFO "Trying to fill the superblock\n");
+    /* Create the inode for root directory */
+    root = s2fs_make_inode(sb, S_IFDIR | 0755);
+    if (!root)
+        return -ENOMEM;
+    root->i_op = &simple_dir_inode_operations;
+    root->i_fop = &simple_dir_operations;
+    
+    /* Give a dentry to represent the root directory */
+    root_dentry = d_make_root(root);
+    if (!root_dentry) {
+        iput(root);
+        return -ENOMEM;
+    }
+    sb->s_root = root_dentry;
+    
     return 0;
 };
 
