@@ -131,7 +131,7 @@ static int s2fs_fill_super(struct super_block * sb, void * data, int silent) {
      * write anything from scratch.
     */
     struct inode * root;
-    struct dentry * root_dentry;
+    struct dentry * root_dentry, * foo_dentry;
     
     sb->s_blocksize = PAGE_SIZE;        /* Blocksize for the filesystem */
     sb->s_blocksize_bits = PAGE_SHIFT;
@@ -153,6 +153,11 @@ static int s2fs_fill_super(struct super_block * sb, void * data, int silent) {
     }
     sb->s_root = root_dentry;
     
+    /* Create a directory named foo under mounted root directory */
+    foo_dentry = s2fs_create_dir(sb, root_dentry, "foo");
+    
+    /* Then create a file named bar inside foo directory */
+    s2fs_create_file(sb, foo_dentry, "bar");
     return 0;
 };
 
