@@ -96,6 +96,31 @@ static struct file_operations s2fs_fops = {
     .read = s2fs_read_file
 };
 
+static struct dentry * s2fs_create_file(struct super_block * sb, struct dentry * dir,
+                                const char * filename)
+{
+    struct dentry * dentry;
+    struct inode * inode;
+    
+    /* Allocate a new file dentry */
+    dentry = d_alloc_name(dir, filename);
+    if (!dentry) {
+        return 0;
+    }
+    /* Create a new inode for this file */
+    inode = s2fs_make_inode(sb, S_IFREG | 0755);
+    if (!inode) {
+        dput(dentry);
+        return 0;
+    }
+    /* Use the file operations we have defined */
+    inode->i_fop = &s2fs_fops;
+    
+    /* Add the newly made dentry file into the dentry cache */
+    d_add(dentry, inode);
+    return dentry;
+}
+
 /*
  * Function used to fill the superblock's metadata
 */
