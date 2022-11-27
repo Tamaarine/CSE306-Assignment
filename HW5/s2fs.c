@@ -23,6 +23,34 @@ static struct inode * s2fs_make_inode(struct super_block * sb, int mode) {
     return ret;
 }
 
+/*
+ * This function creates a directory in the filesystem.
+ * Also calls s2fs_make_inode except the mode is for a directory.
+*/
+static struct dentry * s2fs_create_dir(struct super_block * sb, struct dentry * parent, const char * dirname) {
+    struct dentry * dentry;
+    struct inode * inode;
+    
+    dentry = d_alloc_name(parent, dirname);
+    if (!dentry) {
+        return 0;
+    }
+    
+    inode = s2fs_make_inode(sb, S_IFDIR | 0755);
+    if (!inode) {
+        dput(dentry);
+        return 0;
+    }
+    /*
+     * Add the operation for inode, and directory ops to be the pre-defined ones
+    */
+    inode->i_op = &simple_dir_inode_operations;
+    inode->i_fop = &simple_dir_operations;
+    
+    d_add(dentry, inode);
+    return dentry;
+}
+
 /* Superblock's operations */
 static struct super_operations s2fs_s_ops = {
     .statfs = simple_statfs,
