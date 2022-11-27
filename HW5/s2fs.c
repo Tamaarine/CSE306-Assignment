@@ -57,6 +57,45 @@ static struct super_operations s2fs_s_ops = {
     .drop_inode = generic_delete_inode
 };
 
+/* What happens when the file is opened */
+static int s2fs_open(struct inode * inode, struct file * filp) {
+    return 0;
+}
+
+/* What happens when you write to a file */
+static ssize_t s2fs_write_file(struct file * filp, const char * buf,
+                        size_t count, loff_t * offset)
+{
+    return 0;
+}
+
+static ssize_t s2fs_read_file(struct file * filp, char * buf,
+                        size_t count, loff_t * offset)
+{
+    /* Just writes the message Hello World! to the buffer */
+    char * msg = "Hello World!";
+    int len = strlen(msg) + 1; /* Plus one to account for null terminator */
+    
+    /* If it has already printed enough don't go on */
+    if (*offset > len) {
+        return 0;
+    }
+    if (count > len - *offset) {
+        count = len - *offset;
+    }
+    if (copy_to_user(buf, msg, count))
+        return -EFAULT;
+    *offset += count;
+    return count;
+}
+
+/* Put all of the operations defined previously together into a struct */
+static struct file_operations s2fs_fops = {
+    .open = s2fs_open,
+    .write = s2fs_write_file,
+    .read = s2fs_read_file
+};
+
 /*
  * Function used to fill the superblock's metadata
 */
