@@ -13,17 +13,12 @@
 */
 static struct inode * s2fs_make_inode(struct super_block * sb, int mode) {
     struct inode * ret = new_inode(sb);
-    kuid_t temp_ku;
-    kgid_t temp_kg;
     
     if (ret) {
-        temp_ku.val = 0;
-        temp_kg.val = 0;
-        ret->i_uid = temp_ku;
-        ret->i_gid = temp_kg;
         ret->i_mode = mode;
         ret->i_blocks = 0;
         ret->i_atime = ret->i_mtime = ret->i_ctime = current_time(ret);
+        ret->i_ino = get_next_ino();
     }
     return ret;
 }
